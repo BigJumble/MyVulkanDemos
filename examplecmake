@@ -1,182 +1,920 @@
-# Copyright (C) 2016-2025 by Sascha Willems - www.saschawillems.de
-# This code is licensed under the MIT license (MIT) (http://opensource.org/licenses/MIT)
+# Copyright(c) 2015-2018, NVIDIA CORPORATION. All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#  * Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+#  * Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#  * Neither the name of NVIDIA CORPORATION nor the names of its
+#    contributors may be used to endorse or promote products derived
+#    from this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+# PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+# OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-cmake_minimum_required(VERSION 3.10.0 FATAL_ERROR)
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+#==============================================================================
+# CMAKE PROJECT SETUP FOR VULKAN-HPP
+#==============================================================================
+# This CMakeLists.txt configures the Vulkan-Hpp project, which generates C++
+# bindings for the Vulkan API. The project consists of several components:
+# 1. Header generators (VulkanHppGenerator, VideoHppGenerator) 
+# 2. Generated C++ headers (vulkan.hpp, vulkan_raii.hpp, etc.)
+# 3. Sample applications demonstrating usage
+# 4. Test suite for validation
+# 5. Optional C++20 module support
 
-set(NAME vulkanExamples)
+# Require CMake 3.12 minimum for modern CMake features like target_link_libraries
+# with INTERFACE visibility and other target-based commands
+cmake_minimum_required( VERSION 3.12 )
 
-project(${NAME})
+# Define the main project - VulkanHppGenerator is the primary executable that
+# generates the C++ header files from Vulkan XML specifications
+project( VulkanHppGenerator LANGUAGES CXX )
 
-include_directories(external)
-include_directories(external/glm)
-include_directories(external/gli)
-include_directories(external/imgui)
-include_directories(external/tinygltf)
-include_directories(external/ktx/include)
-include_directories(external/ktx/other_include)
-include_directories(base)
-
-OPTION(USE_D2D_WSI "Build the project using Direct to Display swapchain" OFF)
-OPTION(USE_DIRECTFB_WSI "Build the project using DirectFB swapchain" OFF)
-OPTION(USE_WAYLAND_WSI "Build the project using Wayland swapchain" OFF)
-OPTION(USE_HEADLESS "Build the project using headless extension swapchain" OFF)
-OPTION(USE_RELATIVE_ASSET_PATH "Load assets (shaders, models, textures) from a fixed path relative to the binar" OFF)
-OPTION(FORCE_VALIDATION "Forces validation on for all samples at compile time (prefer using the -v / --validation command line arguments)" OFF)
-
-set(RESOURCE_INSTALL_DIR "" CACHE PATH "Path to install resources to (leave empty for running uninstalled)")
-
-message(STATUS "Using module to find Vulkan")
-find_package(Vulkan)
-
-IF(UNIX AND NOT APPLE)
-	set(LINUX TRUE)
-ENDIF()
-
-IF(WIN32)
-	IF (NOT Vulkan_FOUND)
-		find_library(Vulkan_LIBRARY NAMES vulkan-1 vulkan PATHS ${CMAKE_SOURCE_DIR}/libs/vulkan)
-		IF (Vulkan_LIBRARY)
-			set(Vulkan_FOUND ON)
-			MESSAGE("Using bundled Vulkan library version")
-		ENDIF()
-	ENDIF()
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_WIN32_KHR")
-ELSEIF(LINUX)
-	IF (NOT Vulkan_FOUND)
-		find_library(Vulkan_LIBRARY NAMES vulkan HINTS "$ENV{VULKAN_SDK}/lib" "${CMAKE_SOURCE_DIR}/libs/vulkan" REQUIRED)
-		IF (Vulkan_LIBRARY)
-			set(Vulkan_FOUND ON)
-			MESSAGE("Using bundled Vulkan library version")
-		ENDIF()
-	ENDIF()
-	find_package(Threads REQUIRED)
-	IF(USE_D2D_WSI)
-		MESSAGE("Using direct to display extension...")
-		add_definitions(-D_DIRECT2DISPLAY)
-	ELSEIF(USE_DIRECTFB_WSI)
-		find_package(DirectFB REQUIRED)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_DIRECTFB_EXT")
-		include_directories(${DIRECTFB_INCLUDE_DIR})
-	ELSEIF(USE_WAYLAND_WSI)
-		find_program(PKG_CONFIG pkg-config)
-		if (NOT PKG_CONFIG)
-			message(FATAL_ERROR "pkg-config binary not found")
-		endif ()
-		find_package(Wayland REQUIRED)
-		if (NOT WAYLAND_FOUND)
-			message(FATAL_ERROR "Wayland development package not found")
-		endif ()
-		pkg_check_modules(WAYLAND_PROTOCOLS REQUIRED wayland-protocols)
-		if (NOT WAYLAND_PROTOCOLS_FOUND)
-			message(FATAL_ERROR "Wayland protocols package not found")
-		endif ()
-		find_program(WAYLAND_SCANNER wayland-scanner)
-		if (NOT WAYLAND_SCANNER)
-			message(FATAL_ERROR "wayland-scanner binary not found")
-		endif ()
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_WAYLAND_KHR")
-		include_directories(${WAYLAND_INCLUDE_DIR})
-		pkg_get_variable(protocol_dir wayland-protocols pkgdatadir)
-		execute_process(COMMAND ${WAYLAND_SCANNER} client-header ${protocol_dir}/stable/xdg-shell/xdg-shell.xml ${CMAKE_BINARY_DIR}/xdg-shell-client-protocol.h
-				COMMAND ${WAYLAND_SCANNER} private-code ${protocol_dir}/stable/xdg-shell/xdg-shell.xml ${CMAKE_BINARY_DIR}/xdg-shell-protocol.c)
-		include_directories(${CMAKE_BINARY_DIR})
-	ELSEIF(USE_HEADLESS)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_HEADLESS_EXT")
-	ELSE(USE_D2D_WSI)
-		find_package(XCB REQUIRED)
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_XCB_KHR")
-	ENDIF(USE_D2D_WSI)
-ELSEIF(APPLE)
-	IF (CMAKE_GENERATOR MATCHES "Xcode")
-		# Suppress regeneration for Xcode since environment variables will be lost if not set in Xcode locations/custom paths
-		set(CMAKE_SUPPRESS_REGENERATION ON)
-		set(CMAKE_XCODE_GENERATE_SCHEME ON)
-		IF (Vulkan_FOUND)
-			# If the Vulkan loader was found and its environment variables are defined, make them available within Xcode schemes
-			IF (DEFINED ENV{VK_ADD_LAYER_PATH})
-				set(CMAKE_XCODE_SCHEME_ENVIRONMENT "${CMAKE_XCODE_SCHEME_ENVIRONMENT};VK_ADD_LAYER_PATH=$ENV{VK_ADD_LAYER_PATH}")
-			ENDIF()
-			IF (DEFINED ENV{VK_ICD_FILENAMES})
-				set(CMAKE_XCODE_SCHEME_ENVIRONMENT "${CMAKE_XCODE_SCHEME_ENVIRONMENT};VK_ICD_FILENAMES=$ENV{VK_ICD_FILENAMES}")
-			ENDIF()
-			IF (DEFINED ENV{VK_DRIVER_FILES})
-				set(CMAKE_XCODE_SCHEME_ENVIRONMENT "${CMAKE_XCODE_SCHEME_ENVIRONMENT};VK_DRIVER_FILES=$ENV{VK_DRIVER_FILES}")
-			ENDIF()
-		ENDIF()
-	ENDIF()
-	IF (NOT Vulkan_FOUND)
-		# If the Vulkan loader was not found, then look for libMoltenVK.dylib in the Vulkan SDK and legacy MoltenVK locations
-		set(CMAKE_FIND_FRAMEWORK NEVER)
-		find_library(Vulkan_LIBRARY NAMES MoltenVK HINTS "$ENV{VULKAN_SDK}/lib" "$ENV{VULKAN_SDK}/dylib/macOS" REQUIRED)
-		IF (Vulkan_LIBRARY)
-			set(Vulkan_FOUND ON)
-			MESSAGE(STATUS "Using MoltenVK Vulkan Portability library")
-		ENDIF()
-	ENDIF()
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DVK_USE_PLATFORM_METAL_EXT -DVK_EXAMPLE_XCODE_GENERATED")
-	# Todo : android?
-ENDIF(WIN32)
-
-IF (NOT Vulkan_FOUND)
-	message(FATAL_ERROR "Could not find Vulkan library!")
-ELSE()
-	message(STATUS ${Vulkan_LIBRARY})
-ENDIF()
-
-# Set preprocessor defines
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DNOMINMAX -D_USE_MATH_DEFINES")
-
-# Clang specific stuff
-if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-switch-enum")
+#==============================================================================
+# PROJECT HIERARCHY DETECTION
+#==============================================================================
+# Determine if this project is being built standalone or as a subdirectory
+# of another project. This affects default option values and behavior.
+if( CMAKE_VERSION VERSION_LESS "3.21" )
+    # For older CMake versions, manually determine if this is the top-level project
+    # https://cmake.org/cmake/help/latest/variable/PROJECT_IS_TOP_LEVEL.html
+    string( COMPARE EQUAL ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR} PROJECT_IS_TOP_LEVEL )
 endif()
 
+#==============================================================================
+# C++ STANDARD CONFIGURATION
+#==============================================================================
+# Set C++11 as the minimum standard when building as top-level project
+# This ensures compatibility while allowing consumers to use newer standards
+if ( PROJECT_IS_TOP_LEVEL )
+	set( CMAKE_CXX_STANDARD 11 )
+endif()
 
-add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
+#==============================================================================
+# BUILD CONFIGURATION OPTIONS
+#==============================================================================
+# These options control what components get built and how the generated
+# headers behave. Users can override these via -D flags or cmake-gui.
 
-file(GLOB SOURCE *.cpp )
+# Core build options - control which components to build
+option( VULKAN_HPP_PRECOMPILE "Precompile vulkan.hpp and vulkan_raii.hpp for sample builds" ON )
+option( VULKAN_HPP_RUN_GENERATOR "Run the HPP generator" OFF )
+option( VULKAN_HPP_GENERATOR_BUILD "Build the HPP generator" ${PROJECT_IS_TOP_LEVEL} )
+option( VULKAN_HPP_SAMPLES_BUILD "Build samples" OFF )
+option( VULKAN_HPP_TESTS_BUILD "Build tests" OFF )
 
-# Asset and shader path selection
-if(RESOURCE_INSTALL_DIR)
-	add_definitions(-DVK_EXAMPLE_ASSETS_DIR=\"${RESOURCE_INSTALL_DIR}/\")
-	add_definitions(-DVK_EXAMPLE_SHADERS_DIR=\"${RESOURCE_INSTALL_DIR}/shaders/\")
-	install(DIRECTORY assets/ DESTINATION ${RESOURCE_INSTALL_DIR}/)
-	install(DIRECTORY shaders/ DESTINATION ${RESOURCE_INSTALL_DIR}/shaders/)
-else()
-	if(NOT USE_RELATIVE_ASSET_PATH)
-		add_definitions(-DVK_EXAMPLE_ASSETS_DIR=\"${CMAKE_SOURCE_DIR}/assets/\")
-		add_definitions(-DVK_EXAMPLE_SHADERS_DIR=\"${CMAKE_SOURCE_DIR}/shaders/\")
+# Dynamic linking options - useful when Vulkan SDK is not available
+option( VULKAN_HPP_SAMPLES_BUILD_ONLY_DYNAMIC "Build only dynamic. Required in case the Vulkan SDK is not available" OFF )
+option( VULKAN_HPP_TESTS_BUILD_ONLY_DYNAMIC "Build only dynamic" OFF )
+
+# Header source options - control whether to use local or system Vulkan headers
+option( VULKAN_HPP_BUILD_WITH_LOCAL_VULKAN_HPP "Build with local Vulkan headers" ON )
+
+# C++20 module support - experimental feature for modern C++ builds
+option( VULKAN_HPP_ENABLE_CPP20_MODULES "Build Vulkan-Hpp as C++20 module; requires minimum CMake version 3.28" ON )
+option( VULKAN_HPP_ENABLE_STD_MODULE "Build Vulkan-Hpp with import std; requires minimum CMake version 3.30" ON )
+
+#==============================================================================
+# VULKAN-HPP FEATURE CONFIGURATION OPTIONS
+#==============================================================================
+# These options control compile-time features of the generated Vulkan-Hpp headers.
+# See https://github.com/KhronosGroup/Vulkan-Hpp/tree/main?tab=readme-ov-file#configuration-options
+
+# Enhanced mode controls - disable advanced C++ features for simpler usage
+option( VULKAN_HPP_DISABLE_ENHANCED_MODE "Disable all enhanced functionality apart from scoped enums, bitmasks, default initialization and vk::StructureChain" OFF )
+
+# Dispatch loader selection - choose between dynamic loading (runtime) vs static linking (compile-time)
+option( VULKAN_HPP_DISPATCH_LOADER_DYNAMIC "Select the dynamic (ON) or static (OFF) dispatch loader (defaults to VK_NO_PROTOTYPES)" ${VK_NO_PROTOTYPES} )
+
+# Memory and performance options
+option( VULKAN_HPP_FLAGS_MASK_TYPE_AS_PUBLIC "Change the m_mask access modifier in vk::Flags to public" OFF )
+option( VULKAN_HPP_HANDLES_MOVE_EXCHANGE "Enable 'm_handle = exchange( rhs.m_handle, {} )' in move constructors" OFF )
+
+# C++20 designated initializer support
+option( VULKAN_HPP_NO_CONSTRUCTORS "Remove constructors from structs and unions to enable C++20 designated initializers" OFF )
+
+# Exception handling options
+option( VULKAN_HPP_NO_EXCEPTIONS "Do not throw exceptions when vulkan functions return an error code" OFF )
+option( VULKAN_HPP_RAII_NO_EXCEPTIONS "Do not throw exceptions when vulkan functions from vk::raii return an error code." OFF )
+
+# Code generation control options
+option( VULKAN_HPP_NO_NODISCARD_WARNINGS "Remove C++17 [[nodiscard]] from function signatures that return something" OFF )
+option( VULKAN_HPP_NO_SETTERS "Remove setters for structs and unions" OFF )
+option( VULKAN_HPP_NO_SMART_HANDLE "Remove the vk::UniqueHandle helper class" OFF )
+option( VULKAN_HPP_NO_SPACESHIP_OPERATOR "Remove the C++20 <=> (spaceship) operator" OFF )
+option( VULKAN_HPP_NO_TO_STRING "Remove inclusion of vulkan_to_string.hpp from vulkan.hpp" OFF )
+
+# Platform-specific options
+option( VULKAN_HPP_NO_WIN32_PROTOTYPES "Remove HINSTANCE, LoadLibraryA and other symbols, which are declared if VULKAN_HPP_ENABLE_DYNAMIC_LOADER_TOOL is enabled on Win32" OFF )
+
+# Smart handle behavior options
+option( VULKAN_HPP_SMART_HANDLE_IMPLICIT_CAST "Enable implicit casts from vk::UniqueHandle and vk::SharedHandle to their matching vk::Handle" OFF )
+
+# Type safety and reflection options
+option( VULKAN_HPP_TYPESAFE_CONVERSION "Enable copy constructors for non-dispatchable handles" ON )
+option( VULKAN_HPP_USE_REFLECT "Adds reflect function to structures, which returns an iterable tuple" OFF )
+
+#==============================================================================
+# VULKAN PROTOTYPES CONFIGURATION
+#==============================================================================
+# VK_NO_PROTOTYPES controls whether Vulkan function prototypes are included
+# This is critical for dynamic loading scenarios
+if ( NOT DEFINED VK_NO_PROTOTYPES )
+	set ( VK_NO_PROTOTYPES ${VULKAN_HPP_DISPATCH_LOADER_DYNAMIC} )
+endif()
+
+#==============================================================================
+# COMPILER WARNING SETUP FUNCTION
+#==============================================================================
+# Utility function to configure appropriate warning levels for different compilers
+# This ensures high code quality by enabling strict warnings and treating them as errors
+function( vulkan_hpp__setup_warning_level )
+	set( options )
+	set( oneValueArgs NAME )
+	set( multiValueArgs )
+	cmake_parse_arguments( TARGET "{options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+	if( MSVC )
+		# MSVC: Enable level 4 warnings (/W4) and treat warnings as errors (/WX)
+		target_compile_options(${TARGET_NAME} PRIVATE /W4 /WX )
+		if( MSVC_VER GREATER_EQUAL 1910 )
+			# For Visual Studio 2017 and later, enable conformance mode for stricter C++ compliance
+			target_compile_options( ${TARGET_NAME} PRIVATE /permissive- )
+		endif()
+	else()
+		# GCC/Clang: Enable comprehensive warnings and treat them as errors
+		target_compile_options( ${TARGET_NAME} PRIVATE -Wall -Wextra -pedantic -Werror )
+	endif()
+endfunction()
+
+#==============================================================================
+# VULKAN-HPP AND VIDEO-HPP GENERATOR BUILD CONFIGURATION
+#==============================================================================
+# This section builds the actual generator executables that parse Vulkan XML
+# specifications and generate the corresponding C++ header files
+if ( VULKAN_HPP_GENERATOR_BUILD )
+	# Enable folder organization in IDEs like Visual Studio
+	set_property( GLOBAL PROPERTY USE_FOLDERS ON )
+
+	#--------------------------------------------------------------------------
+	# VULKAN XML REGISTRY LOCATION
+	#--------------------------------------------------------------------------
+	# Find the authoritative Vulkan specification (vk.xml) which contains all
+	# Vulkan API definitions, enums, structs, and functions
+	if( NOT DEFINED VulkanRegistry_DIR )
+		if( DEFINED VULKAN_HPP_VULKAN_HEADERS_SRC_DIR )
+			# Use user-specified Vulkan headers directory
+			set( VulkanRegistry_DIR "${VULKAN_HPP_VULKAN_HEADERS_SRC_DIR}/registry" )
+		else()
+			# Default to the bundled Vulkan-Headers submodule
+			set( VulkanRegistry_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Vulkan-Headers/registry" )
+		endif()
+	endif()
+	
+	# Convert path to native format and escape backslashes for C++ string literals
+	file( TO_NATIVE_PATH ${VulkanRegistry_DIR}/vk.xml vk_spec )
+	string( REPLACE "\\" "\\\\" vk_spec ${vk_spec} )
+
+	#--------------------------------------------------------------------------
+	# TINYXML2 LIBRARY INTEGRATION
+	#--------------------------------------------------------------------------
+	# TinyXML2 is used for parsing the XML specification files
+	# We include it directly in the generator rather than as a separate library
+	if( NOT DEFINED VULKAN_HPP_TINYXML2_SRC_DIR )
+		set( VULKAN_HPP_TINYXML2_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/tinyxml2" )
+	endif()
+	set( TINYXML2_SOURCES ${VULKAN_HPP_TINYXML2_SRC_DIR}/tinyxml2.cpp )
+	set( TINYXML2_HEADERS ${VULKAN_HPP_TINYXML2_SRC_DIR}/tinyxml2.h )
+	source_group( TinyXML2 FILES ${TINYXML2_HEADERS} ${TINYXML2_SOURCES} )
+
+	#--------------------------------------------------------------------------
+	# VULKAN HPP GENERATOR EXECUTABLE
+	#--------------------------------------------------------------------------
+	# The main generator that creates vulkan.hpp, vulkan_raii.hpp, and related headers
+	add_executable( VulkanHppGenerator VulkanHppGenerator.cpp VulkanHppGenerator.hpp XMLHelper.hpp ${TINYXML2_SOURCES} ${TINYXML2_HEADERS} )
+	vulkan_hpp__setup_warning_level( NAME VulkanHppGenerator )
+	
+	# Pass essential paths as compile-time definitions to the generator
+	target_compile_definitions( VulkanHppGenerator PUBLIC BASE_PATH="${CMAKE_CURRENT_SOURCE_DIR}" VK_SPEC="${vk_spec}" )
+	target_include_directories( VulkanHppGenerator PRIVATE ${VULKAN_HPP_TINYXML2_SRC_DIR} )
+	
+	# Require C++20 for the generator itself (uses modern C++ features for code generation)
+	set_target_properties( VulkanHppGenerator PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON )
+	
+	# Link pthread on Unix systems for potential threading support
+	if( UNIX )
+		target_link_libraries( VulkanHppGenerator PUBLIC pthread )
+	endif()
+
+	#--------------------------------------------------------------------------
+	# VIDEO HPP GENERATOR EXECUTABLE
+	#--------------------------------------------------------------------------
+	# Separate generator for Vulkan Video extensions (vulkan_video.hpp)
+	add_executable( VideoHppGenerator VideoHppGenerator.cpp VideoHppGenerator.hpp XMLHelper.hpp ${TINYXML2_SOURCES} ${TINYXML2_HEADERS} )
+	vulkan_hpp__setup_warning_level( NAME VideoHppGenerator )
+	
+	# Configure video specification path
+	file( TO_NATIVE_PATH ${VulkanRegistry_DIR}/video.xml video_spec )
+	string( REPLACE "\\" "\\\\" video_spec ${video_spec} )
+	target_compile_definitions( VideoHppGenerator PUBLIC BASE_PATH="${CMAKE_CURRENT_SOURCE_DIR}" VIDEO_SPEC="${video_spec}" )
+	target_include_directories( VideoHppGenerator PRIVATE  ${VULKAN_HPP_TINYXML2_SRC_DIR} )
+	set_target_properties( VideoHppGenerator PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON )
+
+	#--------------------------------------------------------------------------
+	# CLANG-FORMAT INTEGRATION FOR GENERATED CODE
+	#--------------------------------------------------------------------------
+	# Find and configure clang-format to ensure generated headers are properly formatted
+	# Different clang-format versions require different configuration files
+	find_program(CLANG_FORMAT_EXECUTABLE NAMES clang-format)
+	if( CLANG_FORMAT_EXECUTABLE )
+		# Determine clang-format version to select appropriate configuration
+		execute_process( COMMAND ${CLANG_FORMAT_EXECUTABLE} "--version" OUTPUT_VARIABLE clangFormatVersion )
+		# Extract version number using regex
+		string( REGEX MATCH [0123456789.]+ clangFormatVersion "${clangFormatVersion}" )
+		
+		# Verify minimum version requirement (7.0.0+)
+		if( clangFormatVersion VERSION_LESS 7.0.0 )
+			message( WARNING " Found too old clang-format version <" ${clangFormatVersion} ">, we need version 7 and up to nicely format vulkan.hpp and vulkan_raii.hpp" )
+		else()
+			message( STATUS " Found clang-format version <" ${clangFormatVersion} ">." )
+			
+			# Select appropriate .clang-format configuration based on version
+			# Each version has different formatting capabilities and syntax
+			if( clangFormatVersion VERSION_LESS 11.0.0 )
+				message( STATUS " Using .clang-format version 7." )
+				file( READ ".clang-format_7" clangFormat )
+			elseif( clangFormatVersion VERSION_LESS 12.0.0 )
+				message( STATUS " Using .clang-format version 11." )
+				file( READ ".clang-format_11" clangFormat )
+			elseif( clangFormatVersion VERSION_LESS 13.0.0 )
+				message( STATUS " Using .clang-format version 12." )
+				file( READ ".clang-format_12" clangFormat )
+			elseif( clangFormatVersion VERSION_LESS 14.0.0 )
+				message( STATUS " Using .clang-format version 13." )
+				file( READ ".clang-format_13" clangFormat )
+			elseif( clangFormatVersion VERSION_LESS 15.0.0 )
+				message( STATUS " Using .clang-format version 14." )
+				file( READ ".clang-format_14" clangFormat )
+			elseif( clangFormatVersion VERSION_LESS 16.0.0 )
+				message( STATUS " Using .clang-format version 15." )
+				file( READ ".clang-format_15" clangFormat )
+			elseif( clangFormatVersion VERSION_LESS 17.0.0 )
+				message( STATUS " Using .clang-format version 16." )
+				file( READ ".clang-format_16" clangFormat )
+			elseif( clangFormatVersion VERSION_LESS 18.0.0 )
+				message( STATUS " Using .clang-format version 17." )
+				file( READ ".clang-format_17" clangFormat )
+			else()
+				message(STATUS " Using .clang-format version 18." )
+				file( READ ".clang-format_18" clangFormat )
+			endif()
+			
+			# Write the selected configuration and pass executable path to generators
+			file( WRITE ".clang-format" ${clangFormat} )
+			target_compile_definitions( VulkanHppGenerator PUBLIC CLANG_FORMAT_EXECUTABLE="${CLANG_FORMAT_EXECUTABLE}" )
+			target_compile_definitions( VideoHppGenerator PUBLIC CLANG_FORMAT_EXECUTABLE="${CLANG_FORMAT_EXECUTABLE}" )
+		endif()
+	else()
+		message( WARNING " Could not find clang-format. Generated vulkan.hpp and vulkan_raii.hpp will not be nicely formatted." )
 	endif()
 endif()
 
-# Force validation at compile time
-if (FORCE_VALIDATION)
-	add_definitions(-DFORCE_VALIDATION)
+#==============================================================================
+# GENERATOR EXECUTION CONFIGURATION
+#==============================================================================
+# This section sets up custom commands to actually run the generators and
+# produce the C++ header files from the XML specifications
+if( VULKAN_HPP_RUN_GENERATOR )
+	#--------------------------------------------------------------------------
+	# OUTPUT DIRECTORY CONFIGURATION
+	#--------------------------------------------------------------------------
+	# Determine where generated headers should be placed
+	if( NOT DEFINED VulkanHeaders_INCLUDE_DIR )
+		if( DEFINED VULKAN_HPP_PATH )
+			set( VulkanHeaders_INCLUDE_DIR ${VULKAN_HPP_PATH} )
+		else()
+			# Default to current source directory
+			set( VulkanHeaders_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}" )
+		endif()
+	endif()
+	
+	#--------------------------------------------------------------------------
+	# VULKAN.HPP GENERATION COMMAND
+	#--------------------------------------------------------------------------
+	# Set up the main vulkan.hpp generation process
+	file( TO_NATIVE_PATH ${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan.hpp vulkan_hpp )
+	string( REPLACE "\\" "\\\\" vulkan_hpp ${vulkan_hpp} )
+
+	# Custom command to generate vulkan.hpp from vk.xml specification
+	add_custom_command(
+		COMMAND VulkanHppGenerator
+		OUTPUT "${vulkan_hpp}"
+		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+		COMMENT "run VulkanHppGenerator"
+		DEPENDS VulkanHppGenerator "${vk_spec}" )
+	# Target to trigger vulkan.hpp generation
+	add_custom_target( build_vulkan_hpp ALL DEPENDS "${vulkan_hpp}" "${vk_spec}" )
+
+	#--------------------------------------------------------------------------
+	# VULKAN_VIDEO.HPP GENERATION COMMAND
+	#--------------------------------------------------------------------------
+	# Set up the vulkan_video.hpp generation process for video extensions
+	file( TO_NATIVE_PATH ${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_video.hpp vulkan_video_hpp )
+	string( REPLACE "\\" "\\\\" vulkan_video_hpp ${vulkan_video_hpp} )
+
+	# Custom command to generate vulkan_video.hpp from video.xml specification
+	add_custom_command(
+		COMMAND VideoHppGenerator
+		OUTPUT "${vulkan_video_hpp}"
+		WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+		COMMENT "run VideoHppGenerator"
+		DEPENDS VideoHppGenerator "${video_spec}" )
+	# Target to trigger vulkan_video.hpp generation
+	add_custom_target( build_video_hpp ALL DEPENDS "${vulkan_video_hpp}" "${video_spec}" )
 endif()
 
-# Compiler specific stuff
-IF(MSVC)
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /EHsc")
-ELSEIF(APPLE)
-	IF(CMAKE_GENERATOR MATCHES "Makefiles" OR CMAKE_GENERATOR MATCHES "Ninja")
-		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fobjc-arc -ObjC++")
-	ELSE() # SRS - use objective-c++ language flag vs. ObjC++ for Xcode builds
-		SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fobjc-arc -xobjective-c++")
-	ENDIF()
-ENDIF(MSVC)
+#==============================================================================
+# VULKAN-HPP INTERFACE LIBRARY SETUP
+#==============================================================================
+# Create the main Vulkan-Hpp interface library that consumers will link against
+# This library provides all the generated headers and necessary configuration
+add_library( VulkanHpp INTERFACE )
+add_library( Vulkan::Hpp ALIAS VulkanHpp )
 
-IF(WIN32)
-	# Nothing here (yet)
-ELSEIF(APPLE)
-	link_libraries(${Vulkan_LIBRARY} "-framework AppKit" "-framework QuartzCore")
-ELSE(WIN32)
-	link_libraries(${XCB_LIBRARIES} ${Vulkan_LIBRARY} ${Vulkan_LIBRARY} ${DIRECTFB_LIBRARIES} ${WAYLAND_CLIENT_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
-ENDIF(WIN32)
+# Make the current directory available as an include path for vulkan/vulkan.hpp
+target_include_directories( VulkanHpp INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}" )
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")
+# Ensure generated headers are available if generator is being run
+if( VULKAN_HPP_RUN_GENERATOR )
+	add_dependencies( VulkanHpp build_vulkan_hpp build_video_hpp )
+endif()
 
-add_subdirectory(base)
-add_subdirectory(examples)
+#==============================================================================
+# VULKAN-HPP COMPILE DEFINITIONS SETUP
+#==============================================================================
+# Apply all the feature configuration options as compile definitions
+# These control the behavior of the generated Vulkan-Hpp headers
+
+# Enhanced mode control
+if ( VULKAN_HPP_DISABLE_ENHANCED_MODE )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_DISABLE_ENHANCED_MODE" )
+endif()
+
+# Vulkan prototypes control
+if ( VK_NO_PROTOTYPES )
+	target_compile_definitions(VulkanHpp INTERFACE "VK_NO_PROTOTYPES" )
+endif()
+
+#--------------------------------------------------------------------------
+# DISPATCH LOADER CONFIGURATION
+#--------------------------------------------------------------------------
+# Configure dynamic vs static Vulkan function loading
+if ( VULKAN_HPP_DISPATCH_LOADER_DYNAMIC )
+	# Dynamic loading: load Vulkan functions at runtime
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_DISPATCH_LOADER_DYNAMIC" )
+	if( UNIX )
+		# Link dynamic loading libraries (dlopen, dlsym, etc.) on Unix systems
+		target_link_libraries( VulkanHpp INTERFACE ${CMAKE_DL_LIBS} )
+	endif()
+else()
+	# Static loading: link directly to Vulkan library at compile time
+	find_package( Vulkan )
+	if ( Vulkan_FOUND )
+		target_link_libraries( VulkanHpp INTERFACE ${Vulkan_LIBRARIES} )
+	else()
+		message(WARNING "Could not link to vulkan-1 libraries, consider using VULKAN_HPP_DISPATCH_LOADER_DYNAMIC")
+	endif()
+endif()
+
+#--------------------------------------------------------------------------
+# FEATURE FLAG DEFINITIONS
+#--------------------------------------------------------------------------
+# Apply various feature configuration options as preprocessor definitions
+
+# Reflection support
+if ( VULKAN_HPP_USE_REFLECT )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_USE_REFLECT" )
+endif()
+
+# Type safety configuration
+if ( NOT VULKAN_HPP_TYPESAFE_CONVERSION )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_TYPESAFE_CONVERSION=0" )
+endif()
+
+# Move semantics configuration
+if ( VULKAN_HPP_HANDLES_MOVE_EXCHANGE )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_HANDLES_MOVE_EXCHANGE" )
+endif()
+
+# Flags class configuration
+if ( VULKAN_HPP_FLAGS_MASK_TYPE_AS_PUBLIC )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_FLAGS_MASK_TYPE_AS_PUBLIC" )
+endif()
+
+# Smart handle configuration
+if ( VULKAN_HPP_SMART_HANDLE_IMPLICIT_CAST )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_SMART_HANDLE_IMPLICIT_CAST" )
+endif()
+
+# Code generation control flags
+if ( VULKAN_HPP_NO_SETTERS )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_NO_SETTERS" )
+endif()
+if ( VULKAN_HPP_NO_TO_STRING )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_NO_TO_STRING" )
+endif()
+if ( VULKAN_HPP_NO_EXCEPTIONS )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_NO_EXCEPTIONS" )
+endif()
+if ( VULKAN_HPP_NO_CONSTRUCTORS )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_NO_CONSTRUCTORS" )
+endif()
+if ( VULKAN_HPP_NO_SMART_HANDLE )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_NO_SMART_HANDLE" )
+endif()
+if ( VULKAN_HPP_RAII_NO_EXCEPTIONS )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_RAII_NO_EXCEPTIONS" )
+endif()
+if ( VULKAN_HPP_NO_WIN32_PROTOTYPES )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_NO_WIN32_PROTOTYPES" )
+endif()
+if ( VULKAN_HPP_NO_NODISCARD_WARNINGS )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_NO_NODISCARD_WARNINGS" )
+endif()
+if ( VULKAN_HPP_NO_SPACESHIP_OPERATOR )
+	target_compile_definitions(VulkanHpp INTERFACE "VULKAN_HPP_NO_SPACESHIP_OPERATOR" )
+endif()
+
+#==============================================================================
+# C++20 MODULES SUPPORT (EXPERIMENTAL)
+#==============================================================================
+# Optional support for building Vulkan-Hpp as C++20 modules for faster compilation
+# and better dependency management in modern C++ projects
+if( VULKAN_HPP_ENABLE_CPP20_MODULES )
+	# Validate CMake version requirements for C++20 modules
+	if ( VULKAN_HPP_ENABLE_STD_MODULE AND CMAKE_VERSION VERSION_LESS "3.30" )
+		message( FATAL_ERROR "Vulkan-Hpp: C++20 modules with import std require CMake 3.30 or later" )
+	elseif ( CMAKE_VERSION VERSION_LESS "3.28" )
+		message( FATAL_ERROR "Vulkan-Hpp: C++20 modules require CMake 3.28 or later" )
+	endif()
+
+	#--------------------------------------------------------------------------
+	# MODULE SETUP UTILITY FUNCTION
+	#--------------------------------------------------------------------------
+	# Helper function to configure C++20 module targets with proper settings
+	function ( vulkan_hpp__setup_module )
+		set( options )
+		set( oneValueArgs NAME FILE_SET_NAME )
+		set( multiValueArgs FILE_SET ALIAS )
+		cmake_parse_arguments( TARGET "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+		if ( NOT TARGET_NAME )
+			message( FATAL_ERROR "NAME must be defined in vulkan_hpp__setup_module" )
+		endif()
+
+		# Create the module library target
+		add_library( ${TARGET_NAME} )
+		
+		# Set up aliases for easier discovery
+		foreach( TARGET_ALIAS_NAME IN LISTS TARGET_ALIAS )
+			add_library(${TARGET_ALIAS_NAME} ALIAS ${TARGET_NAME})
+		endforeach()
+
+		# Clang 16 specific workaround for module compilation issues
+		if ( CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "16.0" )
+			set_target_properties( ${TARGET_NAME} PROPERTIES CXX_EXTENSIONS OFF )
+		endif()
+
+		# Configure C++ standard based on std module usage
+		if ( VULKAN_HPP_ENABLE_STD_MODULE )
+			# C++23 required for import std support
+			target_compile_features( ${TARGET_NAME} PUBLIC cxx_std_23 )
+			set_target_properties( ${TARGET_NAME} PROPERTIES CXX_MODULE_STD ON )
+		else()
+			# C++20 sufficient for basic modules
+			target_compile_features( ${TARGET_NAME} PUBLIC cxx_std_20 )
+		endif()
+
+		# Validate file set configuration
+		if ( NOT TARGET_FILE_SET )
+			message( FATAL_ERROR "FILE_SET must be defined in vulkan_hpp__setup_module" )
+		endif()
+
+		list(LENGTH TARGET_FILE_SET TARGET_FILE_SET_LENGTH)
+		if ( TARGET_FILE_SET_LENGTH LESS 1 )
+			message(FATAL_ERROR "FILE_SET in vulkan_hpp__setup_module must at least one source file")
+		endif()
+
+		# Configure module file set - this tells CMake which files are module interfaces
+		target_sources( ${TARGET_NAME} PUBLIC
+			FILE_SET ${TARGET_FILE_SET_NAME}
+			BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
+			TYPE CXX_MODULES
+			FILES ${TARGET_FILE_SET} )
+		
+		# Link to the main Vulkan-Hpp interface for all definitions and settings
+		target_link_libraries( ${TARGET_NAME} PUBLIC Vulkan::Hpp )
+	endfunction()
+
+	#--------------------------------------------------------------------------
+	# MODULE TARGETS CREATION
+	#--------------------------------------------------------------------------
+	# Create module targets for both main Vulkan and Video extensions
+	
+	# Main Vulkan C++ module
+	vulkan_hpp__setup_module( NAME VulkanHppModule
+		FILE_SET_NAME vulkan_module_file
+		FILE_SET vulkan/vulkan.cppm
+		ALIAS Vulkan::HppModule )
+		
+	# Video extensions C++ module
+	vulkan_hpp__setup_module( NAME VulkanVideoHppModule
+		FILE_SET_NAME vulkan_video_module_file
+		FILE_SET vulkan/vulkan_video.cppm
+		ALIAS Vulkan::VideoHppModule )
+endif()
+
+#==============================================================================
+# UTILITY FUNCTIONS FOR PROJECT CONFIGURATION
+#==============================================================================
+# These functions provide consistent configuration across samples and tests
+
+#--------------------------------------------------------------------------
+# PLATFORM-SPECIFIC CONFIGURATION FUNCTION
+#--------------------------------------------------------------------------
+# Configure platform-specific Vulkan surface extensions and compiler flags
+function( vulkan_hpp__setup_platform )
+	set( options )
+	set( oneValueArgs NAME )
+	set( multiValueArgs )
+	cmake_parse_arguments( TARGET "{options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+	# Configure platform-specific Vulkan surface macros
+	if( WIN32 )
+		# Windows: Use Win32 surface extension
+		target_compile_definitions( ${TARGET_NAME} PUBLIC VK_USE_PLATFORM_WIN32_KHR )
+	elseif( APPLE )
+		# macOS/iOS: Use Metal surface extension
+		target_compile_definitions( ${TARGET_NAME} PUBLIC VK_USE_PLATFORM_METAL_EXT )
+	elseif( UNIX )
+		# Linux/Unix: Use XCB (X11) surface extension
+		target_compile_definitions( ${TARGET_NAME} PUBLIC VK_USE_PLATFORM_XCB_KHR )
+	else()
+		message( FATAL_ERROR, "Vulkan-Hpp: unhandled platform!" )
+	endif()
+	
+	# Disable strict aliasing optimization for non-MSVC compilers
+	# This prevents potential issues with Vulkan handle casting
+	if( !MSVC )
+		target_compile_options( ${TARGET_NAME} PRIVATE -fno-strict-aliasing )
+	endif()
+endfunction()
+
+#--------------------------------------------------------------------------
+# VULKAN INCLUDE DIRECTORY SETUP FUNCTION
+#--------------------------------------------------------------------------
+# Configure Vulkan header includes - either local or system-installed
+function( vulkan_hpp__setup_vulkan_include )
+	set( options )
+	set( oneValueArgs NAME )
+	set( multiValueArgs )
+	cmake_parse_arguments( TARGET "{options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+	
+	if( VULKAN_HPP_BUILD_WITH_LOCAL_VULKAN_HPP )
+		# Use local Vulkan-Hpp headers from this project
+		target_link_libraries( ${TARGET_NAME} PUBLIC Vulkan::Hpp )
+
+		# Also include local Vulkan C headers if available
+		if ( EXISTS "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Vulkan-Headers/include" )
+			target_include_directories( VulkanHpp INTERFACE "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/Vulkan-Headers/include" )
+		else()
+			message( WARNING "Could not find vulkan C headers locally, pull the Vulkan-Headers submodule or disable VULKAN_HPP_BUILD_WITH_LOCAL_VULKAN_HPP" )
+		endif()
+	else()
+		# Use system-installed Vulkan headers (from Vulkan SDK)
+		find_package( Vulkan REQUIRED )
+		target_include_directories( ${TARGET_NAME} PUBLIC "${Vulkan_INCLUDE_DIRS}" )
+	endif()
+endfunction()
+
+#--------------------------------------------------------------------------
+# PROJECT SETUP UTILITY FUNCTION
+#--------------------------------------------------------------------------
+# Simple wrapper for consistent project() calls
+function( vulkan_hpp__setup_project )
+	set( options )
+	set( oneValueArgs NAME )
+	set( multiValueArgs )
+	cmake_parse_arguments( TARGET "{options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+	project( ${TARGET_NAME} LANGUAGES CXX )
+endfunction()
+
+#--------------------------------------------------------------------------
+# LIBRARY SETUP FUNCTION
+#--------------------------------------------------------------------------
+# Configure library targets with consistent settings for the project
+function( vulkan_hpp__setup_library )
+	set( options SHARED )
+	set( oneValueArgs FOLDER NAME )
+	set( multiValueArgs HEADERS SOURCES )
+	cmake_parse_arguments( TARGET "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+	vulkan_hpp__setup_project( NAME ${TARGET_NAME} )
+
+	# Create interface library for header-only or regular library based on sources
+	if( "${TARGET_SOURCES}" STREQUAL "" )
+		# Header-only library
+		add_library( ${TARGET_NAME} INTERFACE ${TARGET_HEADERS} )
+	else()
+		# Regular library with source files
+		if( ${TARGET_SHARED} )
+			add_library( ${TARGET_NAME} SHARED ${TARGET_SOURCES} ${TARGET_HEADERS} )
+		else()
+			add_library( ${TARGET_NAME} ${TARGET_SOURCES} ${TARGET_HEADERS} )
+		endif()
+		
+		# Apply standard configuration for compiled libraries
+		vulkan_hpp__setup_platform( NAME ${TARGET_NAME} )
+		vulkan_hpp__setup_vulkan_include( NAME ${TARGET_NAME} )
+		vulkan_hpp__setup_warning_level( NAME ${TARGET_NAME} )
+		set_target_properties( ${TARGET_NAME} PROPERTIES CXX_STANDARD_REQUIRED ON )
+	endif()
+	
+	# Organize in IDE folders
+	set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER ${TARGET_FOLDER} )
+endfunction()
+
+#--------------------------------------------------------------------------
+# SAMPLE APPLICATION SETUP FUNCTION
+#--------------------------------------------------------------------------
+# Configure sample executables with consistent Vulkan and platform setup
+function( vulkan_hpp__setup_sample )
+	set( options )
+	set( oneValueArgs FOLDER NAME PCH_REUSE )
+	set( multiValueArgs HEADERS LIBS PCH SOURCES )
+	cmake_parse_arguments( TARGET "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+	# Find Vulkan for linking (unless using dynamic-only build with local headers)
+	if( NOT (VULKAN_HPP_SAMPLES_BUILD_ONLY_DYNAMIC AND VULKAN_HPP_BUILD_WITH_LOCAL_VULKAN_HPP) )
+		find_package( Vulkan REQUIRED )
+	endif()
+
+	vulkan_hpp__setup_project( NAME ${TARGET_NAME} )
+
+	# Create the executable target
+	add_executable( ${TARGET_NAME} ${TARGET_HEADERS} ${TARGET_SOURCES} )
+
+	# Apply standard configuration
+	vulkan_hpp__setup_platform( NAME ${TARGET_NAME} )
+	vulkan_hpp__setup_vulkan_include( NAME ${TARGET_NAME} )
+	vulkan_hpp__setup_warning_level( NAME ${TARGET_NAME} )
+
+	set_target_properties( ${TARGET_NAME} PROPERTIES CXX_STANDARD_REQUIRED ON )
+
+	# Organize in IDE folders
+	if( TARGET_FOLDER )
+		set_target_properties( ${TARGET_NAME} PROPERTIES FOLDER "${TARGET_FOLDER}" )
+	endif()
+
+	# Link additional libraries if specified
+	if( TARGET_LIBS )
+		target_link_libraries( ${TARGET_NAME} PRIVATE "${TARGET_LIBS}" )
+	endif()
+
+	#--------------------------------------------------------------------------
+	# PRECOMPILED HEADER CONFIGURATION
+	#--------------------------------------------------------------------------
+	# Optionally use precompiled headers to speed up compilation
+	if( VULKAN_HPP_PRECOMPILE )
+		if( TARGET_PCH_REUSE )
+			# Reuse PCH from another target (saves compilation time)
+			target_precompile_headers( ${TARGET_NAME} REUSE_FROM "${TARGET_PCH_REUSE}" )
+		elseif( TARGET_PCH )
+			# Create new PCH with specified headers
+			target_precompile_headers( ${TARGET_NAME} PRIVATE "${TARGET_PCH}" )
+		endif()
+	endif()
+endfunction()
+
+#--------------------------------------------------------------------------
+# STATIC SAMPLE SETUP FUNCTION
+#--------------------------------------------------------------------------
+# Configure samples that use static Vulkan linking (traditional approach)
+function( vulkan_hpp__setup_sample_static )
+	set( options )
+	set( oneValueArgs NAME )
+	set( multiValueArgs )
+	cmake_parse_arguments( TARGET "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+	# Only build static samples if not restricted to dynamic-only
+	if( NOT VULKAN_HPP_SAMPLES_BUILD_ONLY_DYNAMIC )
+		if( NOT TARGET_NAME )
+			message( FATAL_ERROR "NAME must be defined in vulkan_hpp__setup_sample_static" )
+		endif()
+
+		find_package( Vulkan REQUIRED )
+
+		# Set up sample with Vulkan library linking
+		vulkan_hpp__setup_sample(
+			NAME         ${TARGET_NAME}
+			FOLDER       Samples
+			PCH          <vulkan/vulkan.hpp>
+			SOURCES      ${TARGET_NAME}.cpp
+			LIBS         ${Vulkan_LIBRARIES} )
+
+		# Disable dynamic dispatch loader for static linking
+		target_compile_definitions( ${TARGET_NAME} PUBLIC VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=0 )
+	endif()
+endfunction()
+
+#--------------------------------------------------------------------------
+# DYNAMIC SAMPLE SETUP FUNCTION
+#--------------------------------------------------------------------------
+# Configure samples that use dynamic Vulkan loading (runtime loading)
+function( vulkan_hpp__setup_sample_dynamic )
+	set( options )
+	set( oneValueArgs NAME )
+	set( multiValueArgs HEADERS SOURCES )
+	cmake_parse_arguments( TARGET "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+	if( NOT TARGET_NAME )
+		message( FATAL_ERROR "NAME must be defined in vulkan_hpp__setup_sample_dynamic" )
+	endif()
+	if( NOT TARGET_SOURCES )
+		# Default to single source file named after the target
+		set( TARGET_SOURCES ${TARGET_NAME}.cpp )
+	endif()
+
+	# Set up sample with utility library and shared PCH
+	vulkan_hpp__setup_sample(
+		NAME         ${TARGET_NAME}
+		FOLDER       Samples
+		PCH_REUSE    utils      # Reuse PCH from utils library
+		HEADERS      ${TARGET_HEADERS}
+		SOURCES      ${TARGET_SOURCES}
+		LIBS         utils )    # Link to shared utilities
+endfunction()
+
+#--------------------------------------------------------------------------
+# RAII SAMPLE SETUP FUNCTION
+#--------------------------------------------------------------------------
+# Configure samples that demonstrate RAII (Resource Acquisition Is Initialization) usage
+function( vulkan_hpp__setup_sample_raii )
+	set( options )
+	set( oneValueArgs NAME )
+	set( multiValueArgs HEADERS SOURCES )
+	cmake_parse_arguments( TARGET "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+	if( NOT TARGET_NAME )
+		message( FATAL_ERROR "NAME must be defined in vulkan_hpp__setup_sample_raii" )
+	endif()
+	if( NOT TARGET_SOURCES )
+		# Default to single source file named after the target
+		set( TARGET_SOURCES ${TARGET_NAME}.cpp )
+	endif()
+
+	# Set up RAII sample with RAII_ prefix and separate folder
+	vulkan_hpp__setup_sample(
+		NAME         RAII_${TARGET_NAME}
+		FOLDER       RAII_Samples         # Separate folder for RAII examples
+		PCH_REUSE    utils                # Reuse PCH from utils library
+		HEADERS      ${TARGET_HEADERS}
+		SOURCES      ${TARGET_SOURCES}
+		LIBS         utils )              # Link to shared utilities
+endfunction()
+
+#--------------------------------------------------------------------------
+# TEST SETUP FUNCTION
+#--------------------------------------------------------------------------
+# Configure test executables with appropriate settings and dependencies
+function( vulkan_hpp__setup_test )
+	set( options NO_UTILS )
+	set( oneValueArgs CXX_STANDARD NAME )
+	set( multiValueArgs LIBRARIES )
+	cmake_parse_arguments( TARGET "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN} )
+
+	# Find Vulkan for linking (unless using dynamic-only build with local headers)
+	if( NOT (VULKAN_HPP_TESTS_BUILD_ONLY_DYNAMIC AND VULKAN_HPP_BUILD_WITH_LOCAL_VULKAN_HPP) )
+		find_package( Vulkan REQUIRED )
+	endif()
+
+	if( NOT TARGET_NAME )
+		message( FATAL_ERROR "NAME must be defined in vulkan_hpp__setup_test" )
+	endif()
+	if( NOT TARGET_CXX_STANDARD )
+		# Use project default C++ standard if not specified
+		set( TARGET_CXX_STANDARD ${CMAKE_CXX_STANDARD} )
+	endif()
+
+	vulkan_hpp__setup_project( NAME ${TARGET_NAME} )
+
+	# Create test executable (assumes source file named ${TARGET_NAME}.cpp)
+	add_executable( ${TARGET_NAME} ${TARGET_NAME}.cpp )
+
+	# Apply standard configuration
+	vulkan_hpp__setup_platform( NAME ${TARGET_NAME} )
+	vulkan_hpp__setup_vulkan_include( NAME ${TARGET_NAME} )
+	vulkan_hpp__setup_warning_level( NAME ${TARGET_NAME} )
+
+	# Configure C++ standard and IDE organization
+	set_target_properties( ${TARGET_NAME} PROPERTIES 
+		CXX_STANDARD ${TARGET_CXX_STANDARD} 
+		CXX_STANDARD_REQUIRED ON 
+		FOLDER "Tests" )
+		
+	# Include necessary header directories
+	target_include_directories( ${TARGET_NAME} PUBLIC ${VulkanHeaders_INCLUDE_DIR} )
+	target_include_directories( ${TARGET_NAME} PUBLIC "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/glm" )
+	
+	# Link utilities unless explicitly disabled
+	if ( NOT ${TARGET_NO_UTILS} )
+		target_link_libraries( ${TARGET_NAME} PRIVATE utils )
+	endif()
+	
+	# Link additional test-specific libraries
+	target_link_libraries( ${TARGET_NAME} PRIVATE ${TARGET_LIBRARIES} )
+endfunction()
+
+#==============================================================================
+# DEPENDENCY SETUP FOR SAMPLES AND TESTS
+#==============================================================================
+# Configure external dependencies required for building samples and tests
+if( VULKAN_HPP_SAMPLES_BUILD OR VULKAN_HPP_TESTS_BUILD )
+	# GLM: OpenGL Mathematics library for vector/matrix operations
+	add_subdirectory( glm )
+	
+	# GLFW: Cross-platform window and input handling library
+	set( GLFW_BUILD_EXAMPLES OFF )  # Don't build GLFW examples
+	set( GLFW_BUILD_TESTS OFF )     # Don't build GLFW tests
+	add_subdirectory( glfw )
+	
+	# glslang: GLSL to SPIR-V compiler for shader compilation
+	set( ENABLE_OPT OFF )           # Disable SPIR-V optimizer (could use ALLOW_EXTERNAL_SPIRV_TOOLS=ON instead)
+	add_subdirectory( glslang )	set( GLFW_BUILD_EXAMPLES OFF )  # Don't build GLFW examples
+	set( GLFW_BUILD_TESTS OFF )     # Don't build GLFW tests
+
+	# Utility libraries for samples and tests
+	add_subdirectory( samples/utils )      # Regular sample utilities
+	add_subdirectory( RAII_Samples/utils ) # RAII-specific utilities
+endif()
+
+#==============================================================================
+# SAMPLES BUILD CONFIGURATION
+#==============================================================================
+# Build all sample applications if requested
+if( VULKAN_HPP_SAMPLES_BUILD )
+	add_subdirectory( samples )      # Regular Vulkan-Hpp samples
+	add_subdirectory( RAII_Samples ) # RAII-style samples
+endif()
+
+#==============================================================================
+# TESTS BUILD CONFIGURATION  
+#==============================================================================
+# Build test suite if requested
+if( VULKAN_HPP_TESTS_BUILD )
+	add_subdirectory( tests )
+endif()
+
+#==============================================================================
+# INSTALLATION CONFIGURATION
+#==============================================================================
+# Configure installation of generated headers for system-wide use
+if( ${VULKAN_HPP_INSTALL} )
+	include( GNUInstallDirs )
+
+	# List of all generated Vulkan C++ headers that should be installed
+	set( VK_GENERATED_VULKAN_HEADERS
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_enums.hpp           # Vulkan enumerations
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_format_traits.hpp   # Format trait utilities
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_funcs.hpp           # Function declarations
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_handles.hpp         # Handle type definitions
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_hash.hpp            # Hash function support
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_hpp_macros.hpp      # Utility macros
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_raii.hpp            # RAII wrapper classes
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_static_assertions.hpp # Compile-time checks
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_structs.hpp         # Structure definitions
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_to_string.hpp       # String conversion utilities
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_video.hpp           # Video extension support
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan.cppm               # C++20 module interface
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan_video.cppm         # Video C++20 module interface
+		${VulkanHeaders_INCLUDE_DIR}/vulkan/vulkan.hpp                # Main header file
+	)
+	
+	# Install all headers to standard include directory
+	install( FILES ${VK_GENERATED_VULKAN_HEADERS} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/vulkan )
+
+endif()
