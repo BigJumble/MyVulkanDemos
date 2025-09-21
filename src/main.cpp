@@ -3,8 +3,10 @@
 #include <string>
 #include <vulkan/vulkan.hpp>
 #include <glm/glm.hpp>
-// #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include "base/helper.hpp"
+#include "base/test.hpp"
 
 static std::string AppName    = "01_InitInstance";
 static std::string EngineName = "Vulkan.hpp";
@@ -31,6 +33,14 @@ int main()
   }
 
   std::println( "GLFW window created successfully!" );
+
+  // Helper function example
+  int resultadd = add(5, 3);
+  std::println( "Helper add function result: 5 + 3 = {}", resultadd );
+
+    // Helper function example
+    int resultmin = minus(5, 3);
+    std::println( "Test minus function result: 5 - 3 = {}", resultmin );
 
   // GLM Example: Demonstrate vector and matrix operations
   std::println( "\n=== GLM Math Library Example ===" );
