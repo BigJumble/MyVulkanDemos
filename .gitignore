@@ -13,6 +13,7 @@
 [Rr]eleases/
 x64/
 build/
+
 bld/
 [Bb]in/
 [Oo]bj/
@@ -24,6 +25,7 @@ CMakeScripts
 Makefile
 cmake_install.cmake
 install_manifest.txt
+.cache/*
 
 # Roslyn cache directories
 *.ide/
