@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 4.1.1)
 
 set(PROJECT_NAME MyEngine)
 project(${PROJECT_NAME} 
@@ -11,6 +11,7 @@ project(${PROJECT_NAME}
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 
 
 # -------------------
@@ -35,17 +36,51 @@ find_package(Vulkan REQUIRED)
 add_subdirectory(src/external/glm)
 
 # -------------------
+# EnTT (header-only)
+# -------------------
+
+# set(ENTT_BUILD_TESTING OFF)
+# set(ENTT_BUILD_DOCS OFF)
+# set(ENTT_BUILD_EXAMPLES OFF)
+# set(ENTT_INSTALL ON)
+
+add_subdirectory(src/external/entt)
+
+
+# -------------------
 # Base library
 # -------------------
 add_subdirectory(src/base)
+
+# -------------------
+# ImGui
+# -------------------
+set(IMGUI_DIR src/external/imgui)
+set(IMGUI_SOURCES
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    # Backend implementations
+    ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
+)
+
+add_library(imgui STATIC ${IMGUI_SOURCES})
+target_include_directories(imgui PUBLIC 
+    ${IMGUI_DIR}
+    ${IMGUI_DIR}/backends
+)
+target_link_libraries(imgui PUBLIC glfw Vulkan::Vulkan)
 
 # -------------------
 # Executable
 # -------------------
 add_executable(${PROJECT_NAME} src/main.cpp)
 
-target_link_libraries(${PROJECT_NAME} PRIVATE glfw Vulkan::Vulkan glm base)
+target_link_libraries(${PROJECT_NAME} PUBLIC glfw Vulkan::Vulkan glm base EnTT::EnTT)
 
-target_include_directories(${PROJECT_NAME} PRIVATE
+target_include_directories(${PROJECT_NAME} PUBLIC
     src/external/glm
 )
