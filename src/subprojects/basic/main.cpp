@@ -1,5 +1,5 @@
 
-#include "./base/helper.hpp"
+#include "helper.hpp"
 
 static std::string AppName    = "01_InitInstance";
 static std::string EngineName = "Vulkan.hpp";
@@ -18,7 +18,7 @@ int main()
     // initialize the vk::InstanceCreateInfo
     std::vector<const char *> layers{ "VK_LAYER_KHRONOS_validation" };
     std::vector<const char *> extensions{ VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
-    vk::InstanceCreateInfo    instanceCreateInfo( {}, &applicationInfo, layers, extensions );
+    vk::InstanceCreateInfo    instanceCreateInfo( {}, &applicationInfo, {}, extensions );
 
     // create an Instance
     vk::raii::Instance instance( context, instanceCreateInfo );

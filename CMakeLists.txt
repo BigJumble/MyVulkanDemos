@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 4.1.1)
 set(PROJECT_NAME MyEngine)
 project(${PROJECT_NAME} 
     VERSION 1.0.0
-    DESCRIPTION "A modern C++ graphics engine with Vulkan and GLFW"
+    DESCRIPTION "Demo projects using Vulkan and modern C++"
     LANGUAGES CXX
 )
 
@@ -48,9 +48,9 @@ add_subdirectory(src/external/entt)
 
 
 # -------------------
-# Base library
+# Core library
 # -------------------
-add_subdirectory(src/base)
+add_subdirectory(src/core)
 
 # -------------------
 # ImGui
@@ -75,12 +75,6 @@ target_include_directories(imgui PUBLIC
 target_link_libraries(imgui PUBLIC glfw Vulkan::Vulkan)
 
 # -------------------
-# Executable
+# Executable subprojects
 # -------------------
-add_executable(${PROJECT_NAME} src/main.cpp)
-
-target_link_libraries(${PROJECT_NAME} PUBLIC glfw Vulkan::Vulkan glm base EnTT::EnTT)
-
-target_include_directories(${PROJECT_NAME} PUBLIC
-    src/external/glm
-)
+add_subdirectory(src/subprojects)
