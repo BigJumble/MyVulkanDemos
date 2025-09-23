@@ -32,7 +32,7 @@ int main()
       vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
 
     // Assign the callback function directly
-    debugUtilsMessengerCreateInfo.pfnUserCallback = debugUtilsMessengerCallback;
+    debugUtilsMessengerCreateInfo.pfnUserCallback = core::debugUtilsMessengerCallback;
 
     // Create the debug messenger
     vk::raii::DebugUtilsMessengerEXT debugUtilsMessenger( instance, debugUtilsMessengerCreateInfo );

@@ -1,134 +1,564 @@
 ﻿---
+# Offset for access modifiers (public, private, protected)
+# Example: 
+#   public:
+#     int x;
+#   private:
+#     int y;
+# AccessModifierOffset: -2 will indent access specifiers by -2 spaces.
+# Available: any integer
 AccessModifierOffset : -2
-AlignAfterOpenBracket : Align
+
+# How to align parameters after an open bracket.
+# Example:
+#   void foo(int a,
+#            int b);
+# Available: Align, DontAlign, AlwaysBreak
+AlignAfterOpenBracket : AlwaysBreak
+
+# How to align array of structures.
+# Example:
+#   struct { int a; } arr[2] = { {1}, {2} };
+# Available: None, Left, Right
 AlignArrayOfStructures : None
+
+# Align consecutive assignments.
+# Example:
+#   int a   = 1;
+#   float b = 2;
+# Available: None, Consecutive, AcrossEmptyLines, AcrossComments
 AlignConsecutiveAssignments : Consecutive
+
+# Align consecutive bit fields.
+# Example:
+#   struct S {
+#     int a : 1;
+#     int b : 2;
+#   };
+# Available: None, Consecutive, AcrossEmptyLines, AcrossComments
 AlignConsecutiveBitFields : Consecutive
+
+# Align consecutive short case statements.
+# Example:
+#   case 1: foo(); break;
+#   case 2: bar(); break;
+# Available: Enabled (true/false), AcrossEmptyLines (true/false), AcrossComments (true/false), AlignCaseColons (true/false)
 AlignConsecutiveShortCaseStatements :
     Enabled : true
     AcrossEmptyLines : false
     AcrossComments : true
     AlignCaseColons : true
+
+# Align consecutive declarations.
+# Example:
+#   int   a;
+#   float b;
+# Available: None, Consecutive, AcrossEmptyLines, AcrossComments
 AlignConsecutiveDeclarations : Consecutive
+
+# Align consecutive macros.
+# Example:
+#   #define A 1
+#   #define B 2
+# Available: None, Consecutive, AcrossEmptyLines, AcrossComments
 AlignConsecutiveMacros : Consecutive
+
+# Align escaped newlines in macros.
+# Example:
+#   #define FOO(a, b) \
+#     (a + b)
+# Available: Left, Right, DontAlign
 AlignEscapedNewlines : Left
+
+# Align operands in expressions.
+# Example:
+#   int x = a +
+#           b;
+# Available: DontAlign, Align, AlignAfterOperator
 AlignOperands : AlignAfterOperator
+
+# Align trailing comments.
+# Example:
+#   int a;   // comment
+# Available: Kind (Always/Never/Leave), OverEmptyLines (int)
 AlignTrailingComments :
     Kind : Always
     OverEmptyLines : 0
+
+# Allow all arguments on next line.
+# Example:
+#   foo(
+#     a,
+#     b
+#   );
+# Available: true, false
 AllowAllArgumentsOnNextLine : true
+
+# Allow all parameters of declaration on next line.
+# Example:
+#   void foo(
+#     int a,
+#     int b
+#   );
+# Available: true, false
 AllowAllParametersOfDeclarationOnNextLine : true
+
+# Allow break before noexcept specifier.
+# Example:
+#   void foo()
+#     noexcept;
+# Available: Never, Always, Leave
 AllowBreakBeforeNoexceptSpecifier : Always
+
+# Allow short blocks on a single line if empty.
+# Example: if (x) {}
+# Available: Never, Empty, Always
 AllowShortBlocksOnASingleLine : Empty
+
+# Allow short case labels on a single line.
+# Example: case 1: foo();
+# Available: true, false
 AllowShortCaseLabelsOnASingleLine : true
+
+# Allow short compound requirements on a single line.
+# Example: requires { expr; }
+# Available: true, false
 AllowShortCompoundRequirementOnASingleLine : true
+
+# Allow short enums on a single line.
+# Example: enum E { A, B };
+# Available: true, false
 AllowShortEnumsOnASingleLine : true
+
+# Allow short functions on a single line if empty.
+# Example: void foo() {}
+# Available: None, Empty, Inline, All
 AllowShortFunctionsOnASingleLine : Empty
+
+# Allow short if statements on a single line.
+# Example: if (x) foo();
+# Available: Never, WithoutElse, OnlyFirstIf, Always
 AllowShortIfStatementsOnASingleLine : Never
+
+# Allow short lambdas on a single line.
+# Example: [](){ return 1; }
+# Available: None, Inline, Empty, All
 AllowShortLambdasOnASingleLine : All
+
+# Allow short loops on a single line.
+# Example: for (int i=0; i<10; ++i) foo();
+# Available: true, false
 AllowShortLoopsOnASingleLine : false
+
+# Always break after return type.
+# Example:
+#   int
+#   foo();
+# Available: None, All, TopLevel, AllDefinitions, TopLevelDefinitions
 AlwaysBreakAfterReturnType : None
+
+# Always break before multiline strings.
+# Example:
+#   const char* s =
+#     "long "
+#     "string";
+# Available: true, false
 AlwaysBreakBeforeMultilineStrings : true
+
+# Always break template declarations.
+# Example:
+#   template <typename T>
+#   void foo();
+# Available: Yes, MultiLine, No
 AlwaysBreakTemplateDeclarations : Yes
+
+# Bin pack arguments (put as many as possible on one line).
+# Example: foo(a, b, c);
+# Available: true, false
 BinPackArguments : false
+
+# Bin pack parameters (put as many as possible on one line).
+# Example: void foo(int a, int b, int c);
+# Available: true, false
 BinPackParameters : false
+
+# Bit field colon spacing.
+# Example:
+#   int x : 4;
+# Available: Both, None, Before, After
 BitFieldColonSpacing : Both
+
+# Indent width for braced initializers.
+# Example:
+#   int arr[] = {
+#     1, 2, 3
+#   };
+# Available: integer
 BracedInitializerIndentWidth : 2
+
+# Control brace wrapping style.
+# Available: see below for each option
 BraceWrapping :
+    # Place brace after case label
     AfterCaseLabel : true
+    # Place brace after class
     AfterClass : true
+    # Place brace after control statement (if, for, etc.)
     AfterControlStatement : Always
+    # Place brace after enum
     AfterEnum : true
+    # Place brace after function
     AfterFunction : true
+    # Place brace after namespace
     AfterNamespace : true
+    # Place brace after struct
     AfterStruct : true
+    # Place brace after union
     AfterUnion : true
+    # Place brace after extern block
     AfterExternBlock : true
+    # Place brace before catch
     BeforeCatch : true
+    # Place brace before else
     BeforeElse : true
+    # Place brace before lambda body
     BeforeLambdaBody : true
+    # Place brace before while in do-while
     BeforeWhile : false
+    # Indent braces themselves
     IndentBraces : false
+    # Split empty function onto separate lines
     SplitEmptyFunction : true
+    # Split empty record onto separate lines
     SplitEmptyRecord : true
+    # Split empty namespace onto separate lines
     SplitEmptyNamespace : true
+
+# Break adjacent string literals.
+# Example:
+#   "foo"
+#   "bar"
+# Available: true, false
 BreakAdjacentStringLiterals : false
+
+# Break after attributes.
+# Available: Leave, Always, Never
 BreakAfterAttributes: Leave
+
+# Break before binary operators.
+# Example:
+#   a
+#   + b
+# Available: None, NonAssignment, All
 BreakBeforeBinaryOperators : None
+
+# Break before braces.
+# Available: Attach, Linux, Stroustrup, Allman, GNU, WebKit, Custom
 BreakBeforeBraces : Custom
+
+# Break before concept declarations.
+# Available: Never, Always
 BreakBeforeConceptDeclarations : Always
+
+# Break before inline asm colon.
+# Available: Never, OnlyMultiline, Always
 BreakBeforeInlineASMColon : OnlyMultiline
+
+# Break before ternary operators.
+# Example:
+#   cond
+#     ? a
+#     : b
+# Available: true, false
 BreakBeforeTernaryOperators : true
+
+# Break constructor initializers before comma.
+# Available: BeforeComma, AfterComma
 BreakConstructorInitializers : BeforeComma
+
+# Break inheritance list before comma.
+# Available: BeforeComma, AfterComma
 BreakInheritanceList : BeforeComma
+
+# Break string literals.
+# Available: true, false
 BreakStringLiterals : false
-ColumnLimit : 160
+
+# Column limit for wrapping lines.
+# Available: integer
+ColumnLimit : 220
+
+# Compact namespaces.
+# Example:
+#   namespace A { namespace B {} }
+# Available: true, false
 CompactNamespaces : false
+
+# Indent width for constructor initializer lists.
+# Available: integer
 ConstructorInitializerIndentWidth : 2
+
+# Indentation for continued lines.
+# Available: integer
 ContinuationIndentWidth : 2
+
+# Use C++11 braced list style.
+# Available: true, false
 Cpp11BracedListStyle : false
+
+# Add empty line after access modifier.
+# Available: Never, Always
 EmptyLineAfterAccessModifier : Never
+
+# Add empty line before access modifier.
+# Available: Never, LogicalBlock, Always
 EmptyLineBeforeAccessModifier : LogicalBlock
+
+# Fix namespace comments.
+# Example:
+#   } // namespace foo
+# Available: true, false
 FixNamespaceComments : true
+
+# How to group include blocks.
+# Available: Preserve, Merge, Regroup
 IncludeBlocks : Regroup
+
+# Indent access modifiers.
+# Available: true, false
 IndentAccessModifiers : false
+
+# Indent case blocks.
+# Available: true, false
 IndentCaseBlocks : true
+
+# Indent case labels.
+# Available: true, false
 IndentCaseLabels : true
+
+# Indent extern blocks.
+# Available: true, false
 IndentExternBlock : true
+
+# Indent preprocessor directives.
+# Available: None, AfterHash, BeforeHash
 IndentPPDirectives : AfterHash
+
+# Indent requires clause.
+# Available: true, false
 IndentRequiresClause : false
+
+# Number of spaces per indent.
+# Available: integer
 IndentWidth : 2
+
+# Indent wrapped function names.
+# Available: true, false
 IndentWrappedFunctionNames : true
+
+# Insert braces for control statements.
+# Available: true, false
 InsertBraces : false
+
+# Insert newline at end of file.
+# Available: true, false
 InsertNewlineAtEOF : true
+
+# Integer literal separator.
+# Example: 0b1010'1010
+# Available: Binary, Decimal, Hex (integer)
 IntegerLiteralSeparator :
     Binary : 4
     Decimal : 0
     Hex : 0
+
+# Keep empty lines at the start of blocks.
+# Available: true, false
 KeepEmptyLinesAtTheStartOfBlocks : false
+
+# Lambda body indentation style.
+# Available: Signature, OuterScope
 LambdaBodyIndentation : Signature
+
+# Maximum number of empty lines to keep.
+# Available: integer
 MaxEmptyLinesToKeep : 1
+
+# Namespace indentation style.
+# Available: None, Inner, All
 NamespaceIndentation : All
+
+# How to pack constructor initializers.
+# Available: Never, Always, NextLine, NextLineOnly
 PackConstructorInitializers : NextLine
+
+# Preprocessor directive indent width.
+# Available: integer
 PPIndentWidth : -1
+
+# Pointer alignment style.
+# Example:
+#   int* a;   // Left
+#   int *a;   // Right
+#   int * a;  // Middle
+# Available: Left, Right, Middle
 PointerAlignment : Middle
+
+# Reference alignment style.
+# Example:
+#   int& a;   // Left
+#   int &a;   // Right
+#   int & a;  // Middle
+# Available: Left, Right, Middle
 ReferenceAlignment : Pointer
+
+# Reflow comments to fit column limit.
+# Available: true, false
 ReflowComments : true
+
+# Remove braces in LLVM style.
+# Available: true, false
 RemoveBracesLLVM : false
+
+# Position of requires clause.
+# Available: OwnLine, WithPreceding
 RequiresClausePosition : OwnLine
+
+# Indentation for requires expressions.
+# Available: Keyword, OuterScope
 RequiresExpressionIndentation : Keyword
+
+# Separate definition blocks.
+# Available: Never, Always
 SeparateDefinitionBlocks : Always
+
+# Maximum number of lines in a short namespace to keep on one line.
+# Available: integer
 ShortNamespaceLines : 0
+
+# Sort includes.
+# Available: true, false
 SortIncludes : true
+
+# Sort using declarations.
+# Available: true, false
 SortUsingDeclarations : true
+
+# Space after C-style cast.
+# Example: (int) x
+# Available: true, false
 SpaceAfterCStyleCast : false
+
+# Space after logical not.
+# Example: ! x
+# Available: true, false
 SpaceAfterLogicalNot : false
+
+# Space after 'template' keyword.
+# Example: template <typename T>
+# Available: true, false
 SpaceAfterTemplateKeyword : true
+
+# Space around pointer qualifiers.
+# Example: int * const * p;
+# Available: Default, Both, Left, Right, None
 SpaceAroundPointerQualifiers : Both
+
+# Space before assignment operators.
+# Example: a = b;
+# Available: true, false
 SpaceBeforeAssignmentOperators : true
+
+# Space before case colon.
+# Example: case 1 : break;
+# Available: true, false
 SpaceBeforeCaseColon : false
+
+# Space before C++11 braced list.
+# Example: foo ({1, 2, 3});
+# Available: true, false
 SpaceBeforeCpp11BracedList : false
+
+# Space before constructor initializer colon.
+# Example: Foo() : a(1) {}
+# Available: true, false
 SpaceBeforeCtorInitializerColon : true
+
+# Space before inheritance colon.
+# Example: class A : public B
+# Available: true, false
 SpaceBeforeInheritanceColon : true
+
+# Space before parentheses in control statements.
+# Example: if (x)
+# Available: Never, ControlStatements, Always
 SpaceBeforeParens : ControlStatements
+
+# Space before range-based for loop colon.
+# Example: for (auto x : y)
+# Available: true, false
 SpaceBeforeRangeBasedForLoopColon : true
+
+# Space before square brackets.
+# Example: int arr [10];
+# Available: true, false
 SpaceBeforeSquareBrackets : false
+
+# Space in empty block.
+# Example: {}
+# Available: true, false
 SpaceInEmptyBlock : false
+
+# Space in empty parentheses.
+# Example: foo( )
+# Available: true, false
 SpaceInEmptyParentheses : false
+
+# Number of spaces before trailing comments.
+# Example: int a;  // comment
+# Available: integer
 SpacesBeforeTrailingComments : 2
+
+# Space in template angles.
+# Example: std::vector< int >
+# Available: true, false
 SpacesInAngles : false
+
+# Space in container literals.
+# Example: { 1, 2, 3 }
+# Available: true, false
 SpacesInContainerLiterals : false
+
+# Space in line comment prefix.
+# Example: // comment
+# Available: Minimum (int), Maximum (int)
 SpacesInLineCommentPrefix : 
     Minimum : 1
     Maximum : -1
+
+# Space in parentheses (custom options).
+# Available: see below
 SpacesInParens : Custom
 SpacesInParensOptions :
     InConditionalStatements : true
     InCStyleCasts : false
     InEmptyParentheses : false
     Other : true
+
+# Space in square brackets.
+# Example: arr[ 1 ]
+# Available: true, false
 SpacesInSquareBrackets : false
+
+# C++ standard to use.
+# Available: Cpp03, Cpp11, Cpp14, Cpp17, Cpp20, Latest
 Standard : Latest
+
+# Use CRLF line endings.
+# Available: true, false
 UseCRLF : true
+
+# Use tabs for indentation.
+# Available: Never, ForIndentation, Always
 UseTab : Never
 ...
