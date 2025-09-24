@@ -14,12 +14,10 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include "settings.hpp"
 
-#if defined( DEBUG ) || !defined( NDEBUG )
-#define isDebug(code) code
-#else
-#define isDebug(code)
-#endif
+
+
 
 // int add( int a, int b );
 
@@ -35,9 +33,6 @@ namespace core
   vk::DebugUtilsMessengerCreateInfoEXT createDebugUtilsMessengerCreateInfo();
 
   vk::raii::PhysicalDevice selectPhysicalDevice( const vk::raii::PhysicalDevices & devices );
-
-  std::vector<const char *> getInstanceExtensions();
-
   //contains window and sufrace
   struct SurfaceData
   {
@@ -55,5 +50,27 @@ namespace core
     std::string          name;
     vk::raii::SurfaceKHR surface = nullptr;
   };
+
+  struct QueueFamilyIndices
+  {
+    uint32_t graphicsFamily = UINT32_MAX;
+    uint32_t presentFamily  = UINT32_MAX;
+    uint32_t computeFamily  = UINT32_MAX;
+
+    bool isComplete() const { return graphicsFamily != UINT32_MAX && presentFamily != UINT32_MAX; }
+  };
+
+  QueueFamilyIndices findQueueFamilies( const vk::raii::PhysicalDevice & physicalDevice, const vk::raii::SurfaceKHR & surface );
+
+  struct DeviceBundle
+  {
+    vk::raii::Device device = nullptr;
+    vk::raii::Queue  graphicsQueue = nullptr;
+    vk::raii::Queue  presentQueue  = nullptr;
+    vk::raii::Queue  computeQueue  = nullptr;
+    QueueFamilyIndices indices;
+  };
+
+  DeviceBundle createDeviceWithQueues( const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices );
 
 }  // namespace core

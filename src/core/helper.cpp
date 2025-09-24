@@ -1,4 +1,5 @@
-#include "./helper.hpp"
+#include "helper.hpp"
+#include "settings.hpp"
 
 // #include <vulkan/vulkan_raii.hpp>`
 
@@ -55,40 +56,17 @@ namespace core
       vk::PhysicalDeviceProperties props = device.getProperties();
       if ( props.deviceType == vk::PhysicalDeviceType::eDiscreteGpu )
       {
+        std::println( "device selected {}", (std::string)device.getProperties().deviceName );
+
         return device;
       }
     }
-
+    std::println( "device selected {}", (std::string)devices.front().getProperties().deviceName );
     // If no discrete GPU, just return the first device
     return devices.front();
   }
 
-  std::vector<const char *> getInstanceExtensions()
-  {
-    std::vector<const char *> extensions;
 
-    isDebug( extensions.push_back( VK_EXT_DEBUG_UTILS_EXTENSION_NAME ); );
-
-    extensions.push_back( VK_KHR_SURFACE_EXTENSION_NAME );
-#if defined( VK_USE_PLATFORM_ANDROID_KHR )
-    extensions.push_back( VK_KHR_ANDROID_SURFACE_EXTENSION_NAME );
-#elif defined( VK_USE_PLATFORM_METAL_EXT )
-    extensions.push_back( VK_EXT_METAL_SURFACE_EXTENSION_NAME );
-#elif defined( VK_USE_PLATFORM_VI_NN )
-    extensions.push_back( VK_NN_VI_SURFACE_EXTENSION_NAME );
-#elif defined( VK_USE_PLATFORM_WAYLAND_KHR )
-    extensions.push_back( VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME );
-#elif defined( VK_USE_PLATFORM_WIN32_KHR )
-    extensions.push_back( VK_KHR_WIN32_SURFACE_EXTENSION_NAME );
-#elif defined( VK_USE_PLATFORM_XCB_KHR )
-    extensions.push_back( VK_KHR_XCB_SURFACE_EXTENSION_NAME );
-#elif defined( VK_USE_PLATFORM_XLIB_KHR )
-    extensions.push_back( VK_KHR_XLIB_SURFACE_EXTENSION_NAME );
-#elif defined( VK_USE_PLATFORM_XLIB_XRANDR_EXT )
-    extensions.push_back( VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME );
-#endif
-    return extensions;
-  }
 
   SurfaceData::SurfaceData( vk::raii::Instance const & instance, std::string const & windowName, vk::Extent2D const & extent_ ) : extent( extent_ ), window( nullptr ), name( windowName ), surface( nullptr )
   {
@@ -125,6 +103,83 @@ namespace core
       window = nullptr;
     }
     glfwTerminate();
+  }
+
+  QueueFamilyIndices findQueueFamilies( const vk::raii::PhysicalDevice & physicalDevice, const vk::raii::SurfaceKHR & surface )
+  {
+    QueueFamilyIndices indices;
+
+    std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
+    for ( uint32_t i = 0; i < queueFamilyProperties.size(); ++i )
+    {
+      const auto & props = queueFamilyProperties[i];
+
+      if ( ( props.queueFlags & vk::QueueFlagBits::eGraphics ) && indices.graphicsFamily == UINT32_MAX )
+      {
+        indices.graphicsFamily = i;
+      }
+
+      if ( physicalDevice.getSurfaceSupportKHR( i, *surface ) && indices.presentFamily == UINT32_MAX )
+      {
+        indices.presentFamily = i;
+      }
+
+      if ( ( props.queueFlags & vk::QueueFlagBits::eCompute ) && indices.computeFamily == UINT32_MAX )
+      {
+        indices.computeFamily = i;
+      }
+    }
+
+    if ( indices.computeFamily == UINT32_MAX && indices.graphicsFamily != UINT32_MAX )
+    {
+      const auto & graphicsProps = queueFamilyProperties[indices.graphicsFamily];
+      if ( graphicsProps.queueFlags & vk::QueueFlagBits::eCompute )
+      {
+        indices.computeFamily = indices.graphicsFamily;
+      }
+    }
+
+    if ( !indices.isComplete() )
+    {
+      throw std::runtime_error( "Required queue families not found." );
+    }
+    isDebug( std::println( "Graphics Queue Family Index: {}", indices.graphicsFamily ); );
+    isDebug( std::println( "Present Queue Family Index: {}", indices.presentFamily ); );
+    isDebug( std::println( "Compute Queue Family Index: {}", indices.computeFamily ); );
+    return indices;
+  }
+
+  DeviceBundle createDeviceWithQueues( const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices )
+  {
+    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily, indices.presentFamily };
+    if ( indices.computeFamily != UINT32_MAX )
+    {
+      uniqueQueueFamilies.insert( indices.computeFamily );
+    }
+
+    float                                  queuePriority = 1.0f;
+    std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
+    queueCreateInfos.reserve( uniqueQueueFamilies.size() );
+    for ( uint32_t queueFamily : uniqueQueueFamilies )
+    {
+      queueCreateInfos.push_back( vk::DeviceQueueCreateInfo{}.setQueueFamilyIndex( queueFamily ).setQueueCount( 1 ).setPQueuePriorities( &queuePriority ) );
+    }
+
+    vk::DeviceCreateInfo deviceCreateInfo{};
+    deviceCreateInfo.setQueueCreateInfos( queueCreateInfos );
+    deviceCreateInfo.setPEnabledExtensionNames(core::deviceExtensions);
+
+    DeviceBundle bundle{};
+    bundle.indices       = indices;
+    bundle.device        = vk::raii::Device( physicalDevice, deviceCreateInfo );
+    bundle.graphicsQueue = vk::raii::Queue( bundle.device, indices.graphicsFamily, 0 );
+    bundle.presentQueue  = vk::raii::Queue( bundle.device, indices.presentFamily, 0 );
+    if ( indices.computeFamily != UINT32_MAX )
+    {
+      bundle.computeQueue = vk::raii::Queue( bundle.device, indices.computeFamily, 0 );
+    }
+
+    return bundle;
   }
 
 }  // namespace core
