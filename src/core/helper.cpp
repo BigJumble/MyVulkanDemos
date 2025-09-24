@@ -1,4 +1,5 @@
 #include "helper.hpp"
+
 #include "settings.hpp"
 
 // #include <vulkan/vulkan_raii.hpp>`
@@ -6,13 +7,17 @@
 namespace core
 {
   VKAPI_ATTR vk::Bool32 VKAPI_CALL debugUtilsMessengerCallback(
-    vk::DebugUtilsMessageSeverityFlagBitsEXT messageSeverity, vk::DebugUtilsMessageTypeFlagsEXT messageTypes, const vk::DebugUtilsMessengerCallbackDataEXT * pCallbackData, void * /*pUserData*/ )
+    vk::DebugUtilsMessageSeverityFlagBitsEXT       messageSeverity,
+    vk::DebugUtilsMessageTypeFlagsEXT              messageTypes,
+    const vk::DebugUtilsMessengerCallbackDataEXT * pCallbackData,
+    void * /*pUserData*/ )
   {
     std::println( "validation layer (severity: {}): {}", vk::to_string( messageSeverity ), pCallbackData->pMessage );
     return vk::False;
   }
 
-  vk::InstanceCreateInfo createInstanceCreateInfo( const std::string & appName, const std::string & engineName, std::vector<const char *> layers, std::vector<const char *> extensions )
+  vk::InstanceCreateInfo
+    createInstanceCreateInfo( const std::string & appName, const std::string & engineName, std::vector<const char *> layers, std::vector<const char *> extensions )
   {
     vk::ApplicationInfo applicationInfo(
       appName.c_str(),
@@ -31,9 +36,9 @@ namespace core
   {
     vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = {};
 
-    debugUtilsMessengerCreateInfo.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+    debugUtilsMessengerCreateInfo.messageSeverity = core::DebugMessageSeverity;
 
-    debugUtilsMessengerCreateInfo.messageType = vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+    debugUtilsMessengerCreateInfo.messageType = core::DebugMessageType;
 
     debugUtilsMessengerCreateInfo.pfnUserCallback = core::debugUtilsMessengerCallback;
     return debugUtilsMessengerCreateInfo;
@@ -66,9 +71,8 @@ namespace core
     return devices.front();
   }
 
-
-
-  SurfaceData::SurfaceData( vk::raii::Instance const & instance, std::string const & windowName, vk::Extent2D const & extent_ ) : extent( extent_ ), window( nullptr ), name( windowName ), surface( nullptr )
+  DisplayBundle::DisplayBundle( vk::raii::Instance const & instance, std::string const & windowName, vk::Extent2D const & extent_ )
+    : extent( extent_ ), window( nullptr ), name( windowName ), surface( nullptr )
   {
     if ( !glfwInit() )
     {
@@ -95,7 +99,7 @@ namespace core
     surface = vk::raii::SurfaceKHR( instance, _surface );
   }
 
-  SurfaceData::~SurfaceData()
+  DisplayBundle::~DisplayBundle()
   {
     if ( window )
     {
@@ -167,7 +171,7 @@ namespace core
 
     vk::DeviceCreateInfo deviceCreateInfo{};
     deviceCreateInfo.setQueueCreateInfos( queueCreateInfos );
-    deviceCreateInfo.setPEnabledExtensionNames(core::deviceExtensions);
+    deviceCreateInfo.setPEnabledExtensionNames( core::deviceExtensions );
 
     DeviceBundle bundle{};
     bundle.indices       = indices;
@@ -177,6 +181,129 @@ namespace core
     if ( indices.computeFamily != UINT32_MAX )
     {
       bundle.computeQueue = vk::raii::Queue( bundle.device, indices.computeFamily, 0 );
+    }
+
+    return bundle;
+  }
+
+  SwapchainSupportDetails querySwapchainSupport( const vk::raii::PhysicalDevice & physicalDevice, const vk::raii::SurfaceKHR & surface )
+  {
+    SwapchainSupportDetails details{};
+    details.capabilities = physicalDevice.getSurfaceCapabilitiesKHR( *surface );
+    details.formats      = physicalDevice.getSurfaceFormatsKHR( *surface );
+    details.presentModes = physicalDevice.getSurfacePresentModesKHR( *surface );
+    return details;
+  }
+
+  vk::SurfaceFormatKHR chooseSwapSurfaceFormat( const std::vector<vk::SurfaceFormatKHR> & availableFormats )
+  {
+    for ( const auto & availableFormat : availableFormats )
+    {
+      if ( availableFormat.format == vk::Format::eB8G8R8A8Srgb && availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear )
+      {
+        return availableFormat;
+      }
+    }
+    return availableFormats.empty() ? vk::SurfaceFormatKHR{} : availableFormats.front();
+  }
+
+  vk::PresentModeKHR chooseSwapPresentMode( const std::vector<vk::PresentModeKHR> & availablePresentModes )
+  {
+    for ( const auto & mode : availablePresentModes )
+    {
+      if ( mode == core::preferedPresentationMode )
+      {
+        return mode;
+      }
+    }
+    return vk::PresentModeKHR::eFifo;
+  }
+
+  vk::Extent2D chooseSwapExtent( const vk::SurfaceCapabilitiesKHR & capabilities, const vk::Extent2D & desiredExtent )
+  {
+    if ( capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max() )
+    {
+      return capabilities.currentExtent;
+    }
+    vk::Extent2D actualExtent = desiredExtent;
+    actualExtent.width        = std::max( capabilities.minImageExtent.width, std::min( capabilities.maxImageExtent.width, actualExtent.width ) );
+    actualExtent.height       = std::max( capabilities.minImageExtent.height, std::min( capabilities.maxImageExtent.height, actualExtent.height ) );
+    return actualExtent;
+  }
+
+  SwapchainBundle createSwapchain(
+    const vk::raii::PhysicalDevice & physicalDevice,
+    const vk::raii::Device &         device,
+    const vk::raii::SurfaceKHR &     surface,
+    const vk::Extent2D &             desiredExtent,
+    const QueueFamilyIndices &       indices )
+  {
+    SwapchainSupportDetails support = querySwapchainSupport( physicalDevice, surface );
+
+    if ( support.formats.empty() || support.presentModes.empty() )
+    {
+      throw std::runtime_error( "Swapchain support is insufficient." );
+    }
+
+    vk::SurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat( support.formats );
+    vk::PresentModeKHR   presentMode   = chooseSwapPresentMode( support.presentModes );
+    vk::Extent2D         extent        = chooseSwapExtent( support.capabilities, desiredExtent );
+
+    uint32_t imageCount = support.capabilities.minImageCount + 1;
+    if ( support.capabilities.maxImageCount > 0 && imageCount > support.capabilities.maxImageCount )
+    {
+      imageCount = support.capabilities.maxImageCount;
+    }
+
+    vk::SwapchainCreateInfoKHR createInfo{};
+    createInfo.surface          = *surface;
+    createInfo.minImageCount    = imageCount;
+    createInfo.imageFormat      = surfaceFormat.format;
+    createInfo.imageColorSpace  = surfaceFormat.colorSpace;
+    createInfo.imageExtent      = extent;
+    createInfo.imageArrayLayers = 1;
+    createInfo.imageUsage       = vk::ImageUsageFlagBits::eColorAttachment;
+
+    uint32_t queueFamilyIndices[] = { indices.graphicsFamily, indices.presentFamily };
+    if ( indices.graphicsFamily != indices.presentFamily )
+    {
+      createInfo.imageSharingMode      = vk::SharingMode::eConcurrent;
+      createInfo.queueFamilyIndexCount = 2;
+      createInfo.pQueueFamilyIndices   = queueFamilyIndices;
+    }
+    else
+    {
+      createInfo.imageSharingMode = vk::SharingMode::eExclusive;
+    }
+
+    createInfo.preTransform   = support.capabilities.currentTransform;
+    createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+    createInfo.presentMode    = presentMode;
+    createInfo.clipped        = VK_TRUE;
+
+    SwapchainBundle bundle{};
+    bundle.swapchain   = vk::raii::SwapchainKHR( device, createInfo );
+    bundle.imageFormat = surfaceFormat.format;
+    bundle.extent      = extent;
+
+    bundle.images = bundle.swapchain.getImages();
+    bundle.imageViews.reserve( bundle.images.size() );
+    for ( const vk::Image & image : bundle.images )
+    {
+      vk::ImageViewCreateInfo viewInfo{};
+      viewInfo.image                           = image;
+      viewInfo.viewType                        = vk::ImageViewType::e2D;
+      viewInfo.format                          = bundle.imageFormat;
+      viewInfo.components.r                    = vk::ComponentSwizzle::eIdentity;
+      viewInfo.components.g                    = vk::ComponentSwizzle::eIdentity;
+      viewInfo.components.b                    = vk::ComponentSwizzle::eIdentity;
+      viewInfo.components.a                    = vk::ComponentSwizzle::eIdentity;
+      viewInfo.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;
+      viewInfo.subresourceRange.baseMipLevel   = 0;
+      viewInfo.subresourceRange.levelCount     = 1;
+      viewInfo.subresourceRange.baseArrayLayer = 0;
+      viewInfo.subresourceRange.layerCount     = 1;
+      bundle.imageViews.emplace_back( device, viewInfo );
     }
 
     return bundle;

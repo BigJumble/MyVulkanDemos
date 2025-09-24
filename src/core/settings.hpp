@@ -10,6 +10,23 @@
 
 namespace core
 {
+  // User defined presentation mode
+  inline constexpr vk::PresentModeKHR preferedPresentationMode = vk::PresentModeKHR::eMailbox;
+
+  // clang-format off
+  // Debug message severity flags
+  inline constexpr vk::DebugUtilsMessageSeverityFlagsEXT DebugMessageSeverity =
+    // vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+    vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+    vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+
+  // clang-format off
+  // Debug message type flags
+  inline constexpr vk::DebugUtilsMessageTypeFlagsEXT DebugMessageType =
+    vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+    vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+    vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+
   // List of required device extensions
   inline const std::vector<const char *> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -42,4 +59,4 @@ namespace core
 #endif
   };
   // clang-format on
-}
+}  // namespace core

@@ -286,7 +286,7 @@ BreakStringLiterals : false
 
 # Column limit for wrapping lines.
 # Available: integer
-ColumnLimit : 220
+ColumnLimit : 180
 
 # Compact namespaces.
 # Example:
