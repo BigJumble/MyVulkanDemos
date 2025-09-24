@@ -3,6 +3,7 @@
 #include "settings.hpp"
 
 // #include <vulkan/vulkan_raii.hpp>`
+#include <fstream>
 
 namespace core
 {
@@ -307,6 +308,294 @@ namespace core
     }
 
     return bundle;
+  }
+
+  std::vector<uint32_t> readSpirvFile( const std::string & filePath )
+  {
+    std::ifstream file( filePath, std::ios::ate | std::ios::binary );
+    if ( !file.is_open() )
+    {
+      throw std::runtime_error( std::string( "failed to open SPIR-V file: " ) + filePath );
+    }
+
+    size_t fileSize = static_cast<size_t>( file.tellg() );
+    if ( fileSize % 4 != 0 )
+    {
+      throw std::runtime_error( std::string( "SPIR-V file size is not a multiple of 4: " ) + filePath );
+    }
+    std::vector<uint32_t> buffer( fileSize / 4 );
+    file.seekg( 0 );
+    file.read( reinterpret_cast<char *>( buffer.data() ), fileSize );
+    return buffer;
+  }
+
+  vk::raii::ShaderModule createShaderModule( const vk::raii::Device & device, const std::vector<uint32_t> & spirv )
+  {
+    vk::ShaderModuleCreateInfo createInfo{};
+    createInfo.codeSize = spirv.size() * sizeof( uint32_t );
+    createInfo.pCode    = spirv.data();
+    return vk::raii::ShaderModule( device, createInfo );
+  }
+
+  vk::raii::RenderPass createRenderPass( const vk::raii::Device & device, vk::Format colorFormat )
+  {
+    vk::AttachmentDescription colorAttachment{};
+    colorAttachment.format         = colorFormat;
+    colorAttachment.samples        = vk::SampleCountFlagBits::e1;
+    colorAttachment.loadOp         = vk::AttachmentLoadOp::eClear;
+    colorAttachment.storeOp        = vk::AttachmentStoreOp::eStore;
+    colorAttachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
+    colorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+    colorAttachment.initialLayout  = vk::ImageLayout::eUndefined;
+    colorAttachment.finalLayout    = vk::ImageLayout::ePresentSrcKHR;
+
+    vk::AttachmentReference colorRef{};
+    colorRef.attachment = 0;
+    colorRef.layout     = vk::ImageLayout::eColorAttachmentOptimal;
+
+    vk::SubpassDescription subpass{};
+    subpass.pipelineBindPoint    = vk::PipelineBindPoint::eGraphics;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments    = &colorRef;
+
+    vk::SubpassDependency dependency{};
+    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass    = 0;
+    dependency.srcStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    dependency.dstStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    dependency.srcAccessMask = {};
+    dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+
+    vk::RenderPassCreateInfo rpInfo{};
+    rpInfo.attachmentCount = 1;
+    rpInfo.pAttachments    = &colorAttachment;
+    rpInfo.subpassCount    = 1;
+    rpInfo.pSubpasses      = &subpass;
+    rpInfo.dependencyCount = 1;
+    rpInfo.pDependencies   = &dependency;
+    return vk::raii::RenderPass( device, rpInfo );
+  }
+
+  vk::raii::PipelineLayout createPipelineLayout( const vk::raii::Device & device )
+  {
+    vk::PipelineLayoutCreateInfo info{};
+    return vk::raii::PipelineLayout( device, info );
+  }
+
+  vk::raii::Pipeline createGraphicsPipeline(
+    const vk::raii::Device &         device,
+    vk::raii::RenderPass const &     renderPass,
+    vk::raii::PipelineLayout const & pipelineLayout,
+    vk::Extent2D                     extent,
+    vk::raii::ShaderModule const &   vert,
+    vk::raii::ShaderModule const &   frag )
+  {
+    vk::PipelineShaderStageCreateInfo vertStage{};
+    vertStage.stage  = vk::ShaderStageFlagBits::eVertex;
+    vertStage.module = *vert;
+    vertStage.pName  = "main";
+
+    vk::PipelineShaderStageCreateInfo fragStage{};
+    fragStage.stage  = vk::ShaderStageFlagBits::eFragment;
+    fragStage.module = *frag;
+    fragStage.pName  = "main";
+
+    vk::PipelineShaderStageCreateInfo stages[] = { vertStage, fragStage };
+
+    vk::PipelineVertexInputStateCreateInfo vertexInput{};  // no vertex buffers
+
+    vk::PipelineInputAssemblyStateCreateInfo inputAssembly{};
+    inputAssembly.topology               = vk::PrimitiveTopology::eTriangleList;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+    vk::Viewport viewport{};
+    viewport.x        = 0.0f;
+    viewport.y        = 0.0f;
+    viewport.width    = static_cast<float>( extent.width );
+    viewport.height   = static_cast<float>( extent.height );
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+
+    vk::Rect2D scissor{};
+    scissor.offset = vk::Offset2D{ 0, 0 };
+    scissor.extent = extent;
+
+    vk::PipelineViewportStateCreateInfo viewportState{};
+    viewportState.viewportCount = 1;
+    viewportState.pViewports    = &viewport;
+    viewportState.scissorCount  = 1;
+    viewportState.pScissors     = &scissor;
+
+    vk::PipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.depthClampEnable        = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+    rasterizer.polygonMode             = vk::PolygonMode::eFill;
+    rasterizer.cullMode                = vk::CullModeFlagBits::eBack;
+    rasterizer.frontFace               = vk::FrontFace::eClockwise;
+    rasterizer.depthBiasEnable         = VK_FALSE;
+    rasterizer.lineWidth               = 1.0f;
+
+    vk::PipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sampleShadingEnable  = VK_FALSE;
+    multisampling.rasterizationSamples = vk::SampleCountFlagBits::e1;
+
+    vk::PipelineColorBlendAttachmentState colorBlendAttachment{};
+    colorBlendAttachment.colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+    colorBlendAttachment.blendEnable    = VK_FALSE;
+
+    vk::PipelineColorBlendStateCreateInfo colorBlending{};
+    colorBlending.logicOpEnable   = VK_FALSE;
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments    = &colorBlendAttachment;
+
+    vk::GraphicsPipelineCreateInfo pipelineInfo{};
+    pipelineInfo.stageCount          = 2;
+    pipelineInfo.pStages             = stages;
+    pipelineInfo.pVertexInputState   = &vertexInput;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState      = &viewportState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState   = &multisampling;
+    pipelineInfo.pDepthStencilState  = nullptr;
+    pipelineInfo.pColorBlendState    = &colorBlending;
+    pipelineInfo.pDynamicState       = nullptr;
+    pipelineInfo.layout              = *pipelineLayout;
+    pipelineInfo.renderPass          = *renderPass;
+    pipelineInfo.subpass             = 0;
+
+    return vk::raii::Pipeline( device, nullptr, pipelineInfo );
+  }
+
+  std::vector<vk::raii::Framebuffer>
+    createFramebuffers( const vk::raii::Device & device, vk::raii::RenderPass const & renderPass, vk::Extent2D extent, std::vector<vk::raii::ImageView> const & imageViews )
+  {
+    std::vector<vk::raii::Framebuffer> framebuffers;
+    framebuffers.reserve( imageViews.size() );
+    for ( auto const & view : imageViews )
+    {
+      vk::ImageView             attachments[] = { *view };
+      vk::FramebufferCreateInfo fbInfo{};
+      fbInfo.renderPass      = *renderPass;
+      fbInfo.attachmentCount = 1;
+      fbInfo.pAttachments    = attachments;
+      fbInfo.width           = extent.width;
+      fbInfo.height          = extent.height;
+      fbInfo.layers          = 1;
+      framebuffers.emplace_back( device, fbInfo );
+    }
+    return framebuffers;
+  }
+
+  CommandResources createCommandResources( const vk::raii::Device & device, uint32_t graphicsQueueFamilyIndex, size_t count )
+  {
+    CommandResources          res{};
+    vk::CommandPoolCreateInfo poolInfo{};
+    poolInfo.flags            = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
+    poolInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
+    res.pool                  = vk::raii::CommandPool( device, poolInfo );
+
+    vk::CommandBufferAllocateInfo allocInfo{};
+    allocInfo.commandPool        = *res.pool;
+    allocInfo.level              = vk::CommandBufferLevel::ePrimary;
+    allocInfo.commandBufferCount = static_cast<uint32_t>( count );
+    res.buffers                  = vk::raii::CommandBuffers( device, allocInfo );
+    return res;
+  }
+
+  void recordTriangleCommands(
+    std::vector<vk::raii::CommandBuffer> const & commandBuffers,
+    vk::raii::RenderPass const &                 renderPass,
+    vk::raii::Framebuffer const *                framebuffers,
+    size_t                                       framebufferCount,
+    vk::Extent2D                                 extent,
+    vk::raii::Pipeline const &                   pipeline )
+  {
+    for ( size_t i = 0; i < framebufferCount; ++i )
+    {
+      auto & cb = commandBuffers[i];
+      cb.begin( vk::CommandBufferBeginInfo{} );
+
+      vk::ClearValue          clearColor = vk::ClearColorValue{ std::array<float, 4>{ 0.02f, 0.02f, 0.03f, 1.0f } };
+      vk::RenderPassBeginInfo rpBegin{};
+      rpBegin.renderPass        = *renderPass;
+      rpBegin.framebuffer       = *( framebuffers + i );
+      rpBegin.renderArea.offset = vk::Offset2D{ 0, 0 };
+      rpBegin.renderArea.extent = extent;
+      rpBegin.clearValueCount   = 1;
+      rpBegin.pClearValues      = &clearColor;
+
+      cb.beginRenderPass( rpBegin, vk::SubpassContents::eInline );
+      cb.bindPipeline( vk::PipelineBindPoint::eGraphics, *pipeline );
+      cb.draw( 3, 1, 0, 0 );
+      cb.endRenderPass();
+      cb.end();
+    }
+  }
+
+  SyncObjects createSyncObjects( const vk::raii::Device & device, size_t framesInFlight )
+  {
+    SyncObjects s{};
+    s.imageAvailable.reserve( framesInFlight );
+    s.renderFinished.reserve( framesInFlight );
+    s.inFlightFences.reserve( framesInFlight );
+    vk::SemaphoreCreateInfo semInfo{};
+    vk::FenceCreateInfo     fenceInfo{ vk::FenceCreateFlagBits::eSignaled };
+    for ( size_t i = 0; i < framesInFlight; ++i )
+    {
+      s.imageAvailable.emplace_back( device, semInfo );
+      s.renderFinished.emplace_back( device, semInfo );
+      s.inFlightFences.emplace_back( device, fenceInfo );
+    }
+    return s;
+  }
+
+  uint32_t drawFrame(
+    const vk::raii::Device &                     device,
+    const vk::raii::SwapchainKHR &               swapchain,
+    vk::raii::Queue const &                      graphicsQueue,
+    vk::raii::Queue const &                      presentQueue,
+    std::vector<vk::raii::CommandBuffer> const & commandBuffers,
+    SyncObjects &                                sync,
+    size_t &                                     currentFrame )
+  {
+    (void)device.waitForFences( *sync.inFlightFences[currentFrame], VK_TRUE, UINT64_MAX );
+
+    uint32_t imageIndex = 0;
+    auto     acq        = swapchain.acquireNextImage( UINT64_MAX, *sync.imageAvailable[currentFrame], nullptr );
+    if ( acq.first != vk::Result::eSuccess && acq.first != vk::Result::eSuboptimalKHR )
+    {
+      throw std::runtime_error( "Failed to acquire swapchain image" );
+    }
+    imageIndex = acq.second;
+
+    device.resetFences( *sync.inFlightFences[currentFrame] );
+
+    vk::PipelineStageFlags waitStages = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+    vk::SubmitInfo         submitInfo{};
+    submitInfo.waitSemaphoreCount   = 1;
+    submitInfo.pWaitSemaphores      = &*sync.imageAvailable[currentFrame];
+    submitInfo.pWaitDstStageMask    = &waitStages;
+    submitInfo.commandBufferCount   = 1;
+    submitInfo.pCommandBuffers      = &*commandBuffers[imageIndex];
+    submitInfo.signalSemaphoreCount = 1;
+    submitInfo.pSignalSemaphores    = &*sync.renderFinished[currentFrame];
+
+    graphicsQueue.submit( submitInfo, *sync.inFlightFences[currentFrame] );
+
+    vk::PresentInfoKHR presentInfo{};
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pWaitSemaphores    = &*sync.renderFinished[currentFrame];
+    presentInfo.swapchainCount     = 1;
+    presentInfo.pSwapchains        = &*swapchain;
+    presentInfo.pImageIndices      = &imageIndex;
+    auto pres                      = presentQueue.presentKHR( presentInfo );
+    if ( pres != vk::Result::eSuccess && pres != vk::Result::eSuboptimalKHR )
+    {
+      throw std::runtime_error( "Failed to present swapchain image" );
+    }
+
+    currentFrame = ( currentFrame + 1 ) % sync.imageAvailable.size();
+    return imageIndex;
   }
 
 }  // namespace core

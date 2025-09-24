@@ -110,4 +110,66 @@ namespace core
     const vk::Extent2D &             desiredExtent,
     const QueueFamilyIndices &       indices );
 
+  // Reads a SPIR-V binary file into a vector<uint32_t>
+  std::vector<uint32_t> readSpirvFile( const std::string & filePath );
+
+  // Creates a shader module from SPIR-V code
+  vk::raii::ShaderModule createShaderModule( const vk::raii::Device & device, const std::vector<uint32_t> & spirv );
+
+  // Simple render pass for a single color attachment matching the swapchain format
+  vk::raii::RenderPass createRenderPass( const vk::raii::Device & device, vk::Format colorFormat );
+
+  // Pipeline layout (no descriptors for this basic triangle)
+  vk::raii::PipelineLayout createPipelineLayout( const vk::raii::Device & device );
+
+  // Graphics pipeline using provided shader modules
+  vk::raii::Pipeline createGraphicsPipeline(
+    const vk::raii::Device &         device,
+    vk::raii::RenderPass const &     renderPass,
+    vk::raii::PipelineLayout const & pipelineLayout,
+    vk::Extent2D                     extent,
+    vk::raii::ShaderModule const &   vert,
+    vk::raii::ShaderModule const &   frag );
+
+  // Framebuffers for each swapchain image view
+  std::vector<vk::raii::Framebuffer>
+    createFramebuffers( const vk::raii::Device & device, vk::raii::RenderPass const & renderPass, vk::Extent2D extent, std::vector<vk::raii::ImageView> const & imageViews );
+
+  // Command pool and buffers
+  struct CommandResources
+  {
+    vk::raii::CommandPool                pool = nullptr;
+    std::vector<vk::raii::CommandBuffer> buffers;  // one per framebuffer
+  };
+
+  CommandResources createCommandResources( const vk::raii::Device & device, uint32_t graphicsQueueFamilyIndex, size_t count );
+
+  void recordTriangleCommands(
+    std::vector<vk::raii::CommandBuffer> const & commandBuffers,
+    vk::raii::RenderPass const &                 renderPass,
+    vk::raii::Framebuffer const *                framebuffers,
+    size_t                                       framebufferCount,
+    vk::Extent2D                                 extent,
+    vk::raii::Pipeline const &                   pipeline );
+
+  // Sync objects per frame-in-flight (use 2)
+  struct SyncObjects
+  {
+    std::vector<vk::raii::Semaphore> imageAvailable;
+    std::vector<vk::raii::Semaphore> renderFinished;
+    std::vector<vk::raii::Fence>     inFlightFences;
+  };
+
+  SyncObjects createSyncObjects( const vk::raii::Device & device, size_t framesInFlight );
+
+  // Draw one frame
+  uint32_t drawFrame(
+    const vk::raii::Device &                     device,
+    const vk::raii::SwapchainKHR &               swapchain,
+    vk::raii::Queue const &                      graphicsQueue,
+    vk::raii::Queue const &                      presentQueue,
+    std::vector<vk::raii::CommandBuffer> const & commandBuffers,
+    SyncObjects &                                sync,
+    size_t &                                     currentFrame );
+
 }  // namespace core
