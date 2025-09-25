@@ -4,6 +4,7 @@
 
 // #include <vulkan/vulkan_raii.hpp>`
 #include <fstream>
+#include <vulkan/vulkan.hpp>
 
 namespace core
 {
@@ -237,7 +238,8 @@ namespace core
     const vk::raii::Device &         device,
     const vk::raii::SurfaceKHR &     surface,
     const vk::Extent2D &             desiredExtent,
-    const QueueFamilyIndices &       indices )
+    const QueueFamilyIndices &       indices,
+    const vk::raii::SwapchainKHR *   oldSwapchain )
   {
     SwapchainSupportDetails support = querySwapchainSupport( physicalDevice, surface );
 
@@ -281,6 +283,10 @@ namespace core
     createInfo.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
     createInfo.presentMode    = presentMode;
     createInfo.clipped        = VK_TRUE;
+    if ( oldSwapchain && static_cast<VkSwapchainKHR>( **oldSwapchain ) != VK_NULL_HANDLE )
+    {
+      createInfo.oldSwapchain = **oldSwapchain;
+    }
 
     SwapchainBundle bundle{};
     bundle.swapchain   = vk::raii::SwapchainKHR( device, createInfo );
@@ -588,11 +594,8 @@ namespace core
     presentInfo.swapchainCount     = 1;
     presentInfo.pSwapchains        = &*swapchain;
     presentInfo.pImageIndices      = &imageIndex;
-    auto pres                      = presentQueue.presentKHR( presentInfo );
-    if ( pres != vk::Result::eSuccess && pres != vk::Result::eSuboptimalKHR )
-    {
-      throw std::runtime_error( "Failed to present swapchain image" );
-    }
+
+    vk::Result pres = presentQueue.presentKHR( presentInfo );
 
     currentFrame = ( currentFrame + 1 ) % sync.imageAvailable.size();
     return imageIndex;

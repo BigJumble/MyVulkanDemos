@@ -108,7 +108,8 @@ namespace core
     const vk::raii::Device &         device,
     const vk::raii::SurfaceKHR &     surface,
     const vk::Extent2D &             desiredExtent,
-    const QueueFamilyIndices &       indices );
+    const QueueFamilyIndices &       indices,
+    const vk::raii::SwapchainKHR *   oldSwapchain = nullptr );
 
   // Reads a SPIR-V binary file into a vector<uint32_t>
   std::vector<uint32_t> readSpirvFile( const std::string & filePath );

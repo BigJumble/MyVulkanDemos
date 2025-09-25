@@ -1,4 +1,7 @@
 #include "helper.hpp"
+#include "settings.hpp"
+#include <limits>
+#include <print>
 // #include "settings.hpp"
 
 // #include <vulkan/vulkan_core.h>
@@ -72,24 +75,54 @@ int main()
     // Create synchronization objects for 2 frames in flight
     core::SyncObjects syncObjects = core::createSyncObjects( deviceBundle.device, 2 );
 
-    // Main render loop (draw a few frames, then exit)
+    // Main render loop
     size_t currentFrame = 0;
-    for ( int frame = 0; frame < 100; ++frame )
+    bool resize = false;
+    while ( !glfwWindowShouldClose( Display.window ) )
     {
-      // Draw one frame
+      glfwPollEvents();
+
+      // Check if window was resized/minimized
+      int width, height;
+      glfwGetFramebufferSize( Display.window, &width, &height );
+      if ( width == 0 || height == 0 )
+      {
+        glfwWaitEvents();
+        continue;
+      }
+
+      if ( width != Display.extent.width || height != Display.extent.height )
+      {
+        // Update extent and recreate swapchain
+        Display.extent = vk::Extent2D( static_cast<uint32_t>( width ), static_cast<uint32_t>( height ) );
+        deviceBundle.device.waitIdle();
+
+        swapchain = core::createSwapchain( physicalDevice, deviceBundle.device, Display.surface, Display.extent, indices, &swapchain.swapchain );
+
+        // Recreate framebuffers with new swapchain
+        framebuffers = core::createFramebuffers( deviceBundle.device, renderPass, Display.extent, swapchain.imageViews );
+
+        // Recreate command resources with new framebuffer count
+        commandResources = core::createCommandResources( deviceBundle.device, deviceBundle.indices.graphicsFamily, framebuffers.size() );
+
+        // Re-record commands for new framebuffers
+        core::recordTriangleCommands( commandResources.buffers, renderPass, framebuffers.data(), framebuffers.size(), Display.extent, graphicsPipeline );
+
+        // Reset current frame to avoid issues with sync objects
+        currentFrame = 0;
+        resize = false;
+      }
+
+      // Draw one frame; handle OutOfDate/Suboptimal by recreating immediately
+      uint32_t drawResult = 0;
       try
       {
         core::drawFrame( deviceBundle.device, swapchain.swapchain, deviceBundle.graphicsQueue, deviceBundle.presentQueue, commandResources.buffers, syncObjects, currentFrame );
       }
-      catch ( vk::OutOfDateKHRError const & )
-      {
-        // ignore in this short demo loop
-        break;
-      }
       catch ( std::exception const & err )
       {
-        std::println( "drawFrame exception: {}", err.what() );
-        break;
+        isDebug(std::println( "drawFrame exception: {}", err.what() ));
+        resize = true;
       }
     }
 
