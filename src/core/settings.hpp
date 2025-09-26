@@ -11,7 +11,7 @@
 namespace core
 {
   // User defined presentation mode
-  inline constexpr vk::PresentModeKHR preferedPresentationMode = vk::PresentModeKHR::eMailbox;
+  inline constexpr vk::PresentModeKHR preferedPresentationMode = vk::PresentModeKHR::eFifo;
 
   // clang-format off
   // Debug message severity flags

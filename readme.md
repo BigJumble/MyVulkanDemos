@@ -1,8 +1,47 @@
-on linux get gcc-14 and g++-14, idk what on windows and mac
-on vscode
-get CMake Tools, clangd
-setup cmaketools to use gcc-14, ctrl + shift + p, then cmake: select a kit
-f7 to build
-f5 to run
+## Build & Run Setup
 
-setup f5 - create launch.json via prompt in Run and Debug tab and edit "program" line to - "program": "${workspaceFolder}/build/MyEngine",
+### Prerequisites
+
+- **Linux:**  
+  - Install `gcc-14` and `g++-14`
+- **Windows / macOS:**  
+  - (TODO: Specify recommended compilers for these platforms)
+
+### VSCode Extensions
+
+- [CMake Tools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools)
+- [clangd](https://marketplace.visualstudio.com/items?itemName=llvm-vs-code-extensions.vscode-clangd)
+
+### Configure CMake Tools
+
+1. Set CMake Tools to use `gcc-14`:
+   - Press <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd>
+   - Select `CMake: Select a Kit`
+   - Choose the kit corresponding to `gcc-14`
+2. Build: Press <kbd>F7</kbd>
+3. Run: Press <kbd>F5</kbd>
+
+#### Debugging Setup
+
+- To enable <kbd>F5</kbd> (Run/Debug):
+  1. Go to the **Run and Debug** tab in VSCode.
+  2. Create a `launch.json` when prompted.
+  3. Edit the `"program"` line to:
+     ```json
+     "program": "${workspaceFolder}/build/src/subprojects/tri-window/tri-window",
+     "cwd": "${workspaceFolder}/build/src/subprojects/tri-window",
+     ```
+
+---
+
+## TODO
+
+- [x] Raster triangle example
+- [x] Resisable window
+- [x] Integrate ImGui
+- [ ] Use EnTT for model/entity management
+- [ ] Implement compute-based Game of Life demo
+- [ ] Implement ray tracing demo
+- [ ] Create cloud renderer using ray tracing
+- [ ] Implement Verlet integration sphere physics on compute
+- [ ] Render sphere terrain using distance fields or marching cubes
