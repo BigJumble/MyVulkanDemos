@@ -51,23 +51,17 @@ int main()
     vk::raii::ShaderModule vertShaderModule = core::createShaderModule( deviceBundle.device, vertShaderCode );
     vk::raii::ShaderModule fragShaderModule = core::createShaderModule( deviceBundle.device, fragShaderCode );
 
-    // Create a render pass matching the swapchain image format
-    vk::raii::RenderPass renderPass = core::createRenderPass( deviceBundle.device, swapchain.imageFormat );
-
     // Create a pipeline layout (no descriptors for this simple triangle)
     vk::raii::PipelineLayout pipelineLayout = core::createPipelineLayout( deviceBundle.device );
 
-    // Create the graphics pipeline using the loaded shader modules
-    vk::raii::Pipeline graphicsPipeline = core::createGraphicsPipeline( deviceBundle.device, renderPass, pipelineLayout, swapchain.extent, vertShaderModule, fragShaderModule );
+    // Create the graphics pipeline using dynamic rendering
+    vk::raii::Pipeline graphicsPipeline = core::createGraphicsPipeline( deviceBundle.device, pipelineLayout, swapchain.extent, vertShaderModule, fragShaderModule, swapchain.imageFormat );
 
-    // Create framebuffers for each swapchain image view
-    std::vector<vk::raii::Framebuffer> framebuffers = core::createFramebuffers( deviceBundle.device, renderPass, swapchain.extent, swapchain.imageViews );
+    // Create command pool and buffers (one per swapchain image)
+    core::CommandResources commandResources = core::createCommandResources( deviceBundle.device, deviceBundle.indices.graphicsFamily, swapchain.imageViews.size() );
 
-    // Create command pool and buffers (one per framebuffer)
-    core::CommandResources commandResources = core::createCommandResources( deviceBundle.device, deviceBundle.indices.graphicsFamily, framebuffers.size() );
-
-    // Record commands to draw the triangle into each framebuffer
-    core::recordTriangleCommands( commandResources.buffers, renderPass, framebuffers.data(), framebuffers.size(), swapchain.extent, graphicsPipeline );
+    // Record commands to draw the triangle using dynamic rendering
+    core::recordTriangleCommands( commandResources.buffers, swapchain.imageViews, swapchain.extent, graphicsPipeline );
 
     // Create synchronization objects for 2 frames in flight
     core::SyncObjects syncObjects = core::createSyncObjects( deviceBundle.device, 2 );

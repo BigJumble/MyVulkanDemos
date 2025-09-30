@@ -39,8 +39,9 @@
 - [x] Raster triangle example
 - [x] Resisable window
 - [x] Integrate ImGui
+- [ ] Refactor to use Vulkan 1.4 features for less bloat
 - [ ] Use EnTT for model/entity management
-- [ ] Implement compute-based Game of Life demo
+- [x] Implement compute-based Game of Life demo
 - [ ] Implement ray tracing demo
 - [ ] Create cloud renderer using ray tracing
 - [ ] Implement Verlet integration sphere physics on compute

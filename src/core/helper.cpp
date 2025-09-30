@@ -4,6 +4,7 @@
 
 // #include <vulkan/vulkan_raii.hpp>`
 #include <fstream>
+#include <print>
 #include <vulkan/vulkan.hpp>
 
 namespace core
@@ -26,7 +27,7 @@ namespace core
       1,  // application version
       engineName.c_str(),
       1,  // engine version
-      VK_API_VERSION_1_3 );
+      VK_API_VERSION_1_4 );
     // applicationInfo.sType = vk::StructureType::eApplicationInfo;
 
     // applicationInfo.sType = vk::StructureType::eApplicationInfo;
@@ -77,6 +78,7 @@ namespace core
       }
     }
     std::println( "device selected {}", (std::string)devices.front().getProperties().deviceName );
+
     // If no discrete GPU, just return the first device
     return devices.front();
   }
@@ -179,9 +181,30 @@ namespace core
       queueCreateInfos.push_back( vk::DeviceQueueCreateInfo{}.setQueueFamilyIndex( queueFamily ).setQueueCount( 1 ).setPQueuePriorities( &queuePriority ) );
     }
 
+    // Enable dynamic rendering feature
+    vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature{};
+    dynamicRenderingFeature.sType = vk::StructureType::ePhysicalDeviceDynamicRenderingFeatures;
+    dynamicRenderingFeature.dynamicRendering = VK_TRUE;
+
+    // Test if deviceExtensions are supported
+    {
+      std::vector<vk::ExtensionProperties> availableExtensions = physicalDevice.enumerateDeviceExtensionProperties();
+      std::set<std::string> availableExtensionNames;
+      for (const auto& ext : availableExtensions) {
+        availableExtensionNames.insert(ext.extensionName);
+        isDebug(std::println("Device extension: {}", static_cast<const char*>(ext.extensionName)));
+      }
+      for (const char* requiredExt : core::deviceExtensions) {
+        if (availableExtensionNames.find(requiredExt) == availableExtensionNames.end()) {
+          throw std::runtime_error(std::string("Device does not support required extension: ") + requiredExt);
+        }
+      }
+    }
+
     vk::DeviceCreateInfo deviceCreateInfo{};
     deviceCreateInfo.setQueueCreateInfos( queueCreateInfos );
     deviceCreateInfo.setPEnabledExtensionNames( core::deviceExtensions );
+    deviceCreateInfo.pNext = &dynamicRenderingFeature;
 
     DeviceBundle bundle{};
     bundle.indices       = indices;
@@ -351,44 +374,6 @@ namespace core
     return vk::raii::ShaderModule( device, createInfo );
   }
 
-  vk::raii::RenderPass createRenderPass( const vk::raii::Device & device, vk::Format colorFormat )
-  {
-    vk::AttachmentDescription colorAttachment{}; // Describes a single attachment (color buffer) for the render pass
-    colorAttachment.format         = colorFormat; // Set the format of the color attachment to match the swapchain image format
-    colorAttachment.samples        = vk::SampleCountFlagBits::e1; // Use a single sample per pixel (no multisampling)
-    colorAttachment.loadOp         = vk::AttachmentLoadOp::eClear; // Clear the color attachment at the start of the render pass
-    colorAttachment.storeOp        = vk::AttachmentStoreOp::eStore; // Store the rendered contents after the render pass (so they can be presented)
-    colorAttachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare; // We don't use the stencil aspect, so we don't care about its initial value
-    colorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare; // We don't use the stencil aspect, so we don't care about its final value
-    colorAttachment.initialLayout  = vk::ImageLayout::eUndefined; // The image can have any layout before the render pass (will be transitioned)
-    colorAttachment.finalLayout    = vk::ImageLayout::ePresentSrcKHR; // After rendering, the image will be ready for presentation to the screen
-
-    vk::AttachmentReference colorRef{};
-    colorRef.attachment = 0;
-    colorRef.layout     = vk::ImageLayout::eColorAttachmentOptimal;
-
-    vk::SubpassDescription subpass{};
-    subpass.pipelineBindPoint    = vk::PipelineBindPoint::eGraphics;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments    = &colorRef;
-
-    vk::SubpassDependency dependency{};
-    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass    = 0;
-    dependency.srcStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependency.dstStageMask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
-    dependency.srcAccessMask = {};
-    dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
-
-    vk::RenderPassCreateInfo rpInfo{};
-    rpInfo.attachmentCount = 1;
-    rpInfo.pAttachments    = &colorAttachment;
-    rpInfo.subpassCount    = 1;
-    rpInfo.pSubpasses      = &subpass;
-    rpInfo.dependencyCount = 1;
-    rpInfo.pDependencies   = &dependency;
-    return vk::raii::RenderPass( device, rpInfo );
-  }
 
   vk::raii::PipelineLayout createPipelineLayout( const vk::raii::Device & device )
   {
@@ -398,11 +383,11 @@ namespace core
 
   vk::raii::Pipeline createGraphicsPipeline(
     const vk::raii::Device &         device,
-    vk::raii::RenderPass const &     renderPass,
     vk::raii::PipelineLayout const & pipelineLayout,
     vk::Extent2D                     extent,
     vk::raii::ShaderModule const &   vert,
-    vk::raii::ShaderModule const &   frag )
+    vk::raii::ShaderModule const &   frag,
+    vk::Format                       colorFormat )
   {
     vk::PipelineShaderStageCreateInfo vertStage{};
     vertStage.stage  = vk::ShaderStageFlagBits::eVertex;
@@ -468,6 +453,12 @@ namespace core
     dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>( dynamicStates.size() );
     dynamicStateInfo.pDynamicStates    = dynamicStates.data();
 
+    // Dynamic rendering info
+    vk::PipelineRenderingCreateInfo renderingInfo{};
+    renderingInfo.sType = vk::StructureType::ePipelineRenderingCreateInfo;
+    renderingInfo.colorAttachmentCount = 1;
+    renderingInfo.pColorAttachmentFormats = &colorFormat;
+
     vk::GraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.stageCount          = 2;
     pipelineInfo.pStages             = stages;
@@ -480,31 +471,12 @@ namespace core
     pipelineInfo.pColorBlendState    = &colorBlending;
     pipelineInfo.pDynamicState       = &dynamicStateInfo;
     pipelineInfo.layout              = *pipelineLayout;
-    pipelineInfo.renderPass          = *renderPass;
-    pipelineInfo.subpass             = 0;
+    pipelineInfo.renderPass          = VK_NULL_HANDLE; // Must be null for dynamic rendering
+    pipelineInfo.pNext               = &renderingInfo;
 
     return vk::raii::Pipeline( device, nullptr, pipelineInfo );
   }
 
-  std::vector<vk::raii::Framebuffer>
-    createFramebuffers( const vk::raii::Device & device, vk::raii::RenderPass const & renderPass, vk::Extent2D extent, std::vector<vk::raii::ImageView> const & imageViews )
-  {
-    std::vector<vk::raii::Framebuffer> framebuffers;
-    framebuffers.reserve( imageViews.size() );
-    for ( auto const & view : imageViews )
-    {
-      vk::ImageView             attachments[] = { *view };
-      vk::FramebufferCreateInfo fbInfo{};
-      fbInfo.renderPass      = *renderPass;
-      fbInfo.attachmentCount = 1;
-      fbInfo.pAttachments    = attachments;
-      fbInfo.width           = extent.width;
-      fbInfo.height          = extent.height;
-      fbInfo.layers          = 1;
-      framebuffers.emplace_back( device, fbInfo );
-    }
-    return framebuffers;
-  }
 
   CommandResources createCommandResources( const vk::raii::Device & device, uint32_t graphicsQueueFamilyIndex, size_t count )
   {
@@ -524,28 +496,44 @@ namespace core
 
   void recordTriangleCommands(
     std::vector<vk::raii::CommandBuffer> const & commandBuffers,
-    vk::raii::RenderPass const &                 renderPass,
-    vk::raii::Framebuffer const *                framebuffers,
-    size_t                                       framebufferCount,
+    std::vector<vk::raii::ImageView> const &     imageViews,
     vk::Extent2D                                 extent,
     vk::raii::Pipeline const &                   pipeline )
   {
-    for ( size_t i = 0; i < framebufferCount; ++i )
+    // Safety check
+    if ( commandBuffers.size() != imageViews.size() )
+    {
+      throw std::runtime_error( "Command buffer count does not match image view count" );
+    }
+
+    for ( size_t i = 0; i < commandBuffers.size(); ++i )
     {
       auto & cb = commandBuffers[i];
       cb.begin( vk::CommandBufferBeginInfo{} );
 
-      vk::ClearValue          clearColor = vk::ClearColorValue{ std::array<float, 4>{ 0.02f, 0.02f, 0.03f, 1.0f } };
-      vk::RenderPassBeginInfo rpBegin{};
-      rpBegin.renderPass        = *renderPass;
-      rpBegin.framebuffer       = *( framebuffers + i );
-      rpBegin.renderArea.offset = vk::Offset2D{ 0, 0 };
-      rpBegin.renderArea.extent = extent;
-      rpBegin.clearValueCount   = 1;
-      rpBegin.pClearValues      = &clearColor;
+      // Begin dynamic rendering
+      vk::ClearValue clearColor = vk::ClearColorValue{ std::array<float, 4>{ 0.02f, 0.02f, 0.03f, 1.0f } };
+      
+      vk::RenderingAttachmentInfo colorAttachment{};
+      colorAttachment.sType = vk::StructureType::eRenderingAttachmentInfo;
+      colorAttachment.imageView   = *imageViews[i];
+      colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+      colorAttachment.loadOp      = vk::AttachmentLoadOp::eClear;
+      colorAttachment.storeOp     = vk::AttachmentStoreOp::eStore;
+      colorAttachment.clearValue  = clearColor;
 
-      cb.beginRenderPass( rpBegin, vk::SubpassContents::eInline );
+      vk::RenderingInfo renderingInfo{};
+      renderingInfo.sType = vk::StructureType::eRenderingInfo;
+      renderingInfo.renderArea.offset = vk::Offset2D{ 0, 0 };
+      renderingInfo.renderArea.extent = extent;
+      renderingInfo.layerCount        = 1;
+      renderingInfo.colorAttachmentCount = 1;
+      renderingInfo.pColorAttachments    = &colorAttachment;
+
+      // Use the standard beginRendering function (Vulkan 1.3+) instead of KHR extension
+      cb.beginRendering( renderingInfo );
       cb.bindPipeline( vk::PipelineBindPoint::eGraphics, *pipeline );
+      
       // Set dynamic viewport and scissor to current extent
       vk::Viewport vp{};
       vp.x        = 0.0f;
@@ -562,8 +550,9 @@ namespace core
       sc.extent = extent;
       std::array<vk::Rect2D, 1> scissors{ sc };
       cb.setScissor( 0, scissors );
+      
       cb.draw( 3, 1, 0, 0 );
-      cb.endRenderPass();
+      cb.endRendering();
       cb.end();
     }
   }

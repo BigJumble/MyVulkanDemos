@@ -102,26 +102,19 @@ namespace core
   // Creates a shader module from SPIR-V code
   vk::raii::ShaderModule createShaderModule( const vk::raii::Device & device, const std::vector<uint32_t> & spirv );
 
-  // Simple render pass for a single color attachment matching the swapchain format
-  vk::raii::RenderPass createRenderPass( const vk::raii::Device & device, vk::Format colorFormat );
-
   // Pipeline layout (no descriptors for this basic triangle)
   vk::raii::PipelineLayout createPipelineLayout( const vk::raii::Device & device );
 
-  // Graphics pipeline using provided shader modules
+  // Graphics pipeline using dynamic rendering
   vk::raii::Pipeline createGraphicsPipeline(
     const vk::raii::Device &         device,
-    vk::raii::RenderPass const &     renderPass,
     vk::raii::PipelineLayout const & pipelineLayout,
     vk::Extent2D                     extent,
     vk::raii::ShaderModule const &   vert,
-    vk::raii::ShaderModule const &   frag );
+    vk::raii::ShaderModule const &   frag,
+    vk::Format                       colorFormat );
 
-  // Framebuffers for each swapchain image view
-  std::vector<vk::raii::Framebuffer>
-    createFramebuffers( const vk::raii::Device & device, vk::raii::RenderPass const & renderPass, vk::Extent2D extent, std::vector<vk::raii::ImageView> const & imageViews );
-
-  // Command pool and buffers
+  // Command pool and buffersW
   struct CommandResources
   {
     vk::raii::CommandPool                pool = nullptr;
@@ -132,9 +125,7 @@ namespace core
 
   void recordTriangleCommands(
     std::vector<vk::raii::CommandBuffer> const & commandBuffers,
-    vk::raii::RenderPass const &                 renderPass,
-    vk::raii::Framebuffer const *                framebuffers,
-    size_t                                       framebufferCount,
+    std::vector<vk::raii::ImageView> const &     imageViews,
     vk::Extent2D                                 extent,
     vk::raii::Pipeline const &                   pipeline );
 
