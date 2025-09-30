@@ -1,21 +1,6 @@
 #pragma once
-
-#include <vulkan/vulkan_raii.hpp>
-
-#define GLFW_INCLUDE_NONE
 #include "settings.hpp"
 
-#include <GLFW/glfw3.h>
-#include <chrono>
-#include <entt/entt.hpp>
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
-#include <iostream>
-#include <print>
-#include <string>
-#include <thread>
-#include <vector>
 
 // int add( int a, int b );
 

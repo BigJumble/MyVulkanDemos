@@ -1,6 +1,21 @@
 #pragma once
-
+#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #include <vulkan/vulkan_raii.hpp>
+
+#define GLFW_INCLUDE_NONE
+
+
+#include <GLFW/glfw3.h>
+#include <chrono>
+#include <entt/entt.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <iostream>
+#include <print>
+#include <string>
+#include <thread>
+#include <vector>
 
 #if defined( DEBUG ) || !defined( NDEBUG )
 #  define isDebug( code ) code
@@ -11,11 +26,12 @@
 namespace core
 {
   // User defined presentation mode
-  inline constexpr vk::PresentModeKHR preferedPresentationMode = vk::PresentModeKHR::eFifo;
+  inline constexpr vk::PresentModeKHR preferedPresentationMode = vk::PresentModeKHR::eFifoRelaxed;
 
   // clang-format off
   // Debug message severity flags
   inline constexpr vk::DebugUtilsMessageSeverityFlagsEXT DebugMessageSeverity =
+    // vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
     // vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
     vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
     vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
@@ -23,6 +39,7 @@ namespace core
   // clang-format off
   // Debug message type flags
   inline constexpr vk::DebugUtilsMessageTypeFlagsEXT DebugMessageType =
+    // vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding |
     vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
     vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
     vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;

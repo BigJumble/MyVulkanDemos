@@ -1,0 +1,32 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(binding = 0) uniform sampler2D uPrev;
+layout(binding = 1, rgba8) writeonly uniform image2D uNext;
+
+// Interprets non-black as alive
+bool isAlive(vec4 c) { return dot(c.rgb, vec3(0.3333)) > 0.1; }
+
+void main() {
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 size  = imageSize(uNext);
+    if (coord.x >= size.x || coord.y >= size.y) return;
+
+    // Count alive neighbors with wrap-around
+    int alive = 0;
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            if (dx == 0 && dy == 0) continue;
+            ivec2 nc = ivec2((coord.x + dx + size.x) % size.x, (coord.y + dy + size.y) % size.y);
+            if (isAlive(texelFetch(uPrev, nc, 0))) alive++;
+        }
+    }
+
+    bool cur = isAlive(texelFetch(uPrev, coord, 0));
+    bool next = (cur && (alive == 2 || alive == 3)) || (!cur && alive == 3);
+    vec4 outc = next ? vec4(1.0, 1.0, 1.0, 1.0) : vec4(0.0, 0.0, 0.0, 1.0);
+    imageStore(uNext, coord, outc);
+}
+
+

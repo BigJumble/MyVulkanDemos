@@ -14,7 +14,7 @@ namespace core
     const vk::DebugUtilsMessengerCallbackDataEXT * pCallbackData,
     void * /*pUserData*/ )
   {
-    std::println( "validation layer (severity: {}): {}", vk::to_string( messageSeverity ), pCallbackData->pMessage );
+    std::println( "validation layer (severity: {}): {}\n", vk::to_string( messageSeverity ), pCallbackData->pMessage );
     return vk::False;
   }
 
@@ -27,9 +27,17 @@ namespace core
       engineName.c_str(),
       1,  // engine version
       VK_API_VERSION_1_3 );
+    // applicationInfo.sType = vk::StructureType::eApplicationInfo;
 
+    // applicationInfo.sType = vk::StructureType::eApplicationInfo;
     vk::InstanceCreateInfo instanceCreateInfo( {}, &applicationInfo, layers, extensions );
-
+    // instanceCreateInfo.sType = vk::StructureType::eInstanceCreateInfo;
+// #if defined(DEBUG) || !defined(NDEBUG)
+//     vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = core::createDebugUtilsMessengerCreateInfo();
+//     instanceCreateInfo.pNext = &debugUtilsMessengerCreateInfo;
+// #else
+//     instanceCreateInfo.pNext = nullptr;
+// #endif
     return instanceCreateInfo;
   }
 
@@ -265,7 +273,7 @@ namespace core
     createInfo.imageColorSpace  = surfaceFormat.colorSpace;
     createInfo.imageExtent      = extent;
     createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage       = vk::ImageUsageFlagBits::eColorAttachment;
+    createInfo.imageUsage       = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage;
 
     uint32_t queueFamilyIndices[] = { indices.graphicsFamily, indices.presentFamily };
     if ( indices.graphicsFamily != indices.presentFamily )
@@ -297,20 +305,20 @@ namespace core
     bundle.imageViews.reserve( bundle.images.size() );
     for ( const vk::Image & image : bundle.images )
     {
-      vk::ImageViewCreateInfo viewInfo{};
-      viewInfo.image                           = image;
-      viewInfo.viewType                        = vk::ImageViewType::e2D;
-      viewInfo.format                          = bundle.imageFormat;
-      viewInfo.components.r                    = vk::ComponentSwizzle::eIdentity;
-      viewInfo.components.g                    = vk::ComponentSwizzle::eIdentity;
-      viewInfo.components.b                    = vk::ComponentSwizzle::eIdentity;
-      viewInfo.components.a                    = vk::ComponentSwizzle::eIdentity;
-      viewInfo.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;
-      viewInfo.subresourceRange.baseMipLevel   = 0;
-      viewInfo.subresourceRange.levelCount     = 1;
-      viewInfo.subresourceRange.baseArrayLayer = 0;
-      viewInfo.subresourceRange.layerCount     = 1;
-      bundle.imageViews.emplace_back( device, viewInfo );
+      vk::ImageViewCreateInfo viewInfo{}; // Create an image view create info struct
+      viewInfo.image = image; // The image to create a view for
+      viewInfo.viewType = vk::ImageViewType::e2D; // 2D texture view
+      viewInfo.format = bundle.imageFormat; // Format matches swapchain image format
+      viewInfo.components.r = vk::ComponentSwizzle::eIdentity; // No swizzle for R
+      viewInfo.components.g = vk::ComponentSwizzle::eIdentity; // No swizzle for G
+      viewInfo.components.b = vk::ComponentSwizzle::eIdentity; // No swizzle for B
+      viewInfo.components.a = vk::ComponentSwizzle::eIdentity; // No swizzle for A
+      viewInfo.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor; // View color aspect
+      viewInfo.subresourceRange.baseMipLevel = 0; // Start at first mip level
+      viewInfo.subresourceRange.levelCount = 1; // Only one mip level
+      viewInfo.subresourceRange.baseArrayLayer = 0; // Start at first array layer
+      viewInfo.subresourceRange.layerCount = 1; // Only one array layer
+      bundle.imageViews.emplace_back( device, viewInfo ); // Create and store the image view
     }
 
     return bundle;
@@ -345,15 +353,15 @@ namespace core
 
   vk::raii::RenderPass createRenderPass( const vk::raii::Device & device, vk::Format colorFormat )
   {
-    vk::AttachmentDescription colorAttachment{};
-    colorAttachment.format         = colorFormat;
-    colorAttachment.samples        = vk::SampleCountFlagBits::e1;
-    colorAttachment.loadOp         = vk::AttachmentLoadOp::eClear;
-    colorAttachment.storeOp        = vk::AttachmentStoreOp::eStore;
-    colorAttachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
-    colorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-    colorAttachment.initialLayout  = vk::ImageLayout::eUndefined;
-    colorAttachment.finalLayout    = vk::ImageLayout::ePresentSrcKHR;
+    vk::AttachmentDescription colorAttachment{}; // Describes a single attachment (color buffer) for the render pass
+    colorAttachment.format         = colorFormat; // Set the format of the color attachment to match the swapchain image format
+    colorAttachment.samples        = vk::SampleCountFlagBits::e1; // Use a single sample per pixel (no multisampling)
+    colorAttachment.loadOp         = vk::AttachmentLoadOp::eClear; // Clear the color attachment at the start of the render pass
+    colorAttachment.storeOp        = vk::AttachmentStoreOp::eStore; // Store the rendered contents after the render pass (so they can be presented)
+    colorAttachment.stencilLoadOp  = vk::AttachmentLoadOp::eDontCare; // We don't use the stencil aspect, so we don't care about its initial value
+    colorAttachment.stencilStoreOp = vk::AttachmentStoreOp::eDontCare; // We don't use the stencil aspect, so we don't care about its final value
+    colorAttachment.initialLayout  = vk::ImageLayout::eUndefined; // The image can have any layout before the render pass (will be transitioned)
+    colorAttachment.finalLayout    = vk::ImageLayout::ePresentSrcKHR; // After rendering, the image will be ready for presentation to the screen
 
     vk::AttachmentReference colorRef{};
     colorRef.attachment = 0;
@@ -411,7 +419,7 @@ namespace core
     vk::PipelineVertexInputStateCreateInfo vertexInput{};  // no vertex buffers
 
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{};
-    inputAssembly.topology               = vk::PrimitiveTopology::eTriangleList;
+    inputAssembly.topology               = vk::PrimitiveTopology::eTriangleStrip;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
     vk::Viewport viewport{};
@@ -428,9 +436,9 @@ namespace core
 
     vk::PipelineViewportStateCreateInfo viewportState{};
     viewportState.viewportCount = 1;
-    viewportState.pViewports    = &viewport;
+    viewportState.pViewports    = nullptr;  // dynamic
     viewportState.scissorCount  = 1;
-    viewportState.pScissors     = &scissor;
+    viewportState.pScissors     = nullptr;  // dynamic
 
     vk::PipelineRasterizationStateCreateInfo rasterizer{};
     rasterizer.depthClampEnable        = VK_FALSE;
@@ -454,6 +462,12 @@ namespace core
     colorBlending.attachmentCount = 1;
     colorBlending.pAttachments    = &colorBlendAttachment;
 
+    // Enable dynamic viewport and scissor to avoid pipeline rebuilds on resize
+    std::array<vk::DynamicState, 2> dynamicStates = { vk::DynamicState::eViewport, vk::DynamicState::eScissor };
+    vk::PipelineDynamicStateCreateInfo dynamicStateInfo{};
+    dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>( dynamicStates.size() );
+    dynamicStateInfo.pDynamicStates    = dynamicStates.data();
+
     vk::GraphicsPipelineCreateInfo pipelineInfo{};
     pipelineInfo.stageCount          = 2;
     pipelineInfo.pStages             = stages;
@@ -464,7 +478,7 @@ namespace core
     pipelineInfo.pMultisampleState   = &multisampling;
     pipelineInfo.pDepthStencilState  = nullptr;
     pipelineInfo.pColorBlendState    = &colorBlending;
-    pipelineInfo.pDynamicState       = nullptr;
+    pipelineInfo.pDynamicState       = &dynamicStateInfo;
     pipelineInfo.layout              = *pipelineLayout;
     pipelineInfo.renderPass          = *renderPass;
     pipelineInfo.subpass             = 0;
@@ -532,6 +546,22 @@ namespace core
 
       cb.beginRenderPass( rpBegin, vk::SubpassContents::eInline );
       cb.bindPipeline( vk::PipelineBindPoint::eGraphics, *pipeline );
+      // Set dynamic viewport and scissor to current extent
+      vk::Viewport vp{};
+      vp.x        = 0.0f;
+      vp.y        = 0.0f;
+      vp.width    = static_cast<float>( extent.width );
+      vp.height   = static_cast<float>( extent.height );
+      vp.minDepth = 0.0f;
+      vp.maxDepth = 1.0f;
+      std::array<vk::Viewport, 1> viewports{ vp };
+      cb.setViewport( 0, viewports );
+
+      vk::Rect2D sc{};
+      sc.offset = vk::Offset2D{ 0, 0 };
+      sc.extent = extent;
+      std::array<vk::Rect2D, 1> scissors{ sc };
+      cb.setScissor( 0, scissors );
       cb.draw( 3, 1, 0, 0 );
       cb.endRenderPass();
       cb.end();
