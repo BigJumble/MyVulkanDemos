@@ -1,7 +1,9 @@
 #pragma once
-#include <vulkan/vulkan_core.h>
-#define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+// #include <vulkan/vulkan_core.h>
+// #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
 #include <vulkan/vulkan_raii.hpp>
+#include <vulkan/vulkan_handles.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 #define GLFW_INCLUDE_NONE
 
@@ -17,9 +19,11 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <fstream>
+
 
 #if defined( DEBUG ) || !defined( NDEBUG )
-#  define isDebug( code ) 
+#  define isDebug( code ) code
 #else
 #  define isDebug( code )
 #endif
@@ -31,19 +35,19 @@ namespace core
 
   // clang-format off
   // Debug message severity flags
-  inline constexpr vk::DebugUtilsMessageSeverityFlagsEXT DebugMessageSeverity =
-    // vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
-    // vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
-    vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-    vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+  // inline constexpr vk::DebugUtilsMessageSeverityFlagsEXT DebugMessageSeverity =
+  //   // vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
+  //   // vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose |
+  //   vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+  //   vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
 
-  // clang-format off
-  // Debug message type flags
-  inline constexpr vk::DebugUtilsMessageTypeFlagsEXT DebugMessageType =
-    // vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding |
-    vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
-    vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
-    vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+  // // clang-format off
+  // // Debug message type flags
+  // inline constexpr vk::DebugUtilsMessageTypeFlagsEXT DebugMessageType =
+  //   // vk::DebugUtilsMessageTypeFlagBitsEXT::eDeviceAddressBinding |
+  //   vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
+  //   vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation |
+  //   vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
 
   // List of required device extensions
   inline const std::vector<const char *> deviceExtensions = {
@@ -85,7 +89,7 @@ namespace core
     VK_EXT_ACQUIRE_XLIB_DISPLAY_EXTENSION_NAME,
 #endif
 #if defined( DEBUG ) || !defined( NDEBUG )
-    VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
+    // VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
 #endif
   };
   // clang-format on

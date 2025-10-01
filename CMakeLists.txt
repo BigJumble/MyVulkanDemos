@@ -29,6 +29,10 @@ add_subdirectory(src/external/glfw)
 # Vulkan
 # -------------------
 find_package(Vulkan REQUIRED)
+if(NOT Vulkan_FOUND)
+    message(FATAL_ERROR "Vulkan SDK not found. Please install the Vulkan SDK and ensure it is discoverable by CMake.")
+endif()
+
 
 # -------------------
 # GLM (header-only)
