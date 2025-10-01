@@ -3,6 +3,7 @@
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "settings.hpp"
 
 static std::string AppName    = "01_InitInstance";
 static std::string EngineName = "Vulkan.hpp";
@@ -18,9 +19,9 @@ int main()
     auto              layerProperties = context.enumerateInstanceLayerProperties();
     for ( auto & layerProperty : layerProperties )
     {
-      std::println( "Layer: {}", layerProperty.layerName.data() );
+      isDebug( std::println( "Layer: {}", layerProperty.layerName.data() ) );
     }
-    std::vector<const char *> layerPropertiesVector{ "VK_LAYER_KHRONOS_validation" };
+    std::vector<const char *> layerPropertiesVector{ isDebug("VK_LAYER_KHRONOS_validation") };
     // create an Instance with debug layer enabled
     vk::raii::Instance instance(
       context,
@@ -52,27 +53,23 @@ int main()
         swapchain.extent.width,
         swapchain.extent.height ); );
 
-    // Create a render pass matching the swapchain image format
-    vk::raii::RenderPass renderPass = core::createRenderPass( deviceBundle.device, swapchain.imageFormat );
+    // Create command pool and buffers (one per swapchain image)
+    core::CommandResources commandResources = core::createCommandResources( deviceBundle.device, deviceBundle.indices.graphicsFamily, swapchain.images.size() );
 
-    // Create framebuffers for each swapchain image view
-    std::vector<vk::raii::Framebuffer> framebuffers = core::createFramebuffers( deviceBundle.device, renderPass, swapchain.extent, swapchain.imageViews );
-
-    // Create command pool and buffers (one per framebuffer)
-    core::CommandResources commandResources = core::createCommandResources( deviceBundle.device, deviceBundle.indices.graphicsFamily, framebuffers.size() );
-
+    // clang-format off
     // ImGui: create descriptor pool
-    std::array<vk::DescriptorPoolSize, 11> imguiPoolSizes = { vk::DescriptorPoolSize{ vk::DescriptorType::eSampler, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eSampledImage, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eUniformTexelBuffer, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageTexelBuffer, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBufferDynamic, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBufferDynamic, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 1000 } };
+    std::array<vk::DescriptorPoolSize, 11> imguiPoolSizes = { 
+      vk::DescriptorPoolSize{ vk::DescriptorType::eSampler, 1000 },
+      vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1000 },
+      vk::DescriptorPoolSize{ vk::DescriptorType::eSampledImage, 1000 },
+      vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1000 },
+      vk::DescriptorPoolSize{ vk::DescriptorType::eUniformTexelBuffer, 1000 },
+      vk::DescriptorPoolSize{ vk::DescriptorType::eStorageTexelBuffer, 1000 },
+      vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1000 },
+      vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
+      vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBufferDynamic, 1000 },
+      vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBufferDynamic, 1000 },
+      vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 1000 } };
 
     vk::DescriptorPoolCreateInfo imguiPoolInfo{};
     imguiPoolInfo.flags         = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
@@ -94,11 +91,19 @@ int main()
     imguiInitInfo.QueueFamily         = deviceBundle.indices.graphicsFamily;
     imguiInitInfo.Queue               = *deviceBundle.graphicsQueue;
     imguiInitInfo.DescriptorPool      = *imguiDescriptorPool;
-    imguiInitInfo.RenderPass          = *renderPass;
-    imguiInitInfo.MinImageCount       = static_cast<uint32_t>( framebuffers.size() );
-    imguiInitInfo.ImageCount          = static_cast<uint32_t>( framebuffers.size() );
+    imguiInitInfo.RenderPass          = VK_NULL_HANDLE;  // Not needed for dynamic rendering
+    imguiInitInfo.MinImageCount       = static_cast<uint32_t>( swapchain.images.size() );
+    imguiInitInfo.ImageCount          = static_cast<uint32_t>( swapchain.images.size() );
     imguiInitInfo.MSAASamples         = VK_SAMPLE_COUNT_1_BIT;
-    imguiInitInfo.UseDynamicRendering = false;
+    imguiInitInfo.UseDynamicRendering = true;
+
+    // Set up dynamic rendering info for ImGui
+    vk::PipelineRenderingCreateInfoKHR pipelineRenderingInfo{};
+    pipelineRenderingInfo.sType                   = vk::StructureType::ePipelineRenderingCreateInfo;
+    pipelineRenderingInfo.colorAttachmentCount    = 1;
+    pipelineRenderingInfo.pColorAttachmentFormats = &swapchain.imageFormat;
+
+    imguiInitInfo.PipelineRenderingCreateInfo = pipelineRenderingInfo;
     ImGui_ImplVulkan_Init( &imguiInitInfo );
 
     // ImGui: recent backends build fonts automatically during NewFrame; no manual upload required
@@ -129,11 +134,8 @@ int main()
 
         swapchain = core::createSwapchain( physicalDevice, deviceBundle.device, Display.surface, Display.extent, indices, &swapchain.swapchain );
 
-        // Recreate framebuffers with new swapchain
-        framebuffers = core::createFramebuffers( deviceBundle.device, renderPass, Display.extent, swapchain.imageViews );
-
-        // Recreate command resources with new framebuffer count
-        // commandResources = core::createCommandResources( deviceBundle.device, deviceBundle.indices.graphicsFamily, framebuffers.size() );
+        // Recreate command resources with new swapchain image count
+        commandResources = core::createCommandResources( deviceBundle.device, deviceBundle.indices.graphicsFamily, swapchain.images.size() );
 
         // Reset current frame to avoid issues with sync objects
         // currentFrame = 0;
@@ -167,21 +169,77 @@ int main()
         deviceBundle.device.resetFences( *syncObjects.inFlightFences[currentFrame] );
 
         auto & cb = commandResources.buffers[imageIndex];
-        cb.reset();
-        cb.begin( vk::CommandBufferBeginInfo{} );
+        commandResources.pool.reset();
+        vk::CommandBufferBeginInfo beginInfo{};
+        beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+        cb.begin( beginInfo );
 
-        vk::ClearValue          clearColor = vk::ClearColorValue{ std::array<float, 4>{ 0.02f, 0.02f, 0.03f, 1.0f } };
-        vk::RenderPassBeginInfo rpBegin{};
-        rpBegin.renderPass        = *renderPass;
-        rpBegin.framebuffer       = *framebuffers[imageIndex];
-        rpBegin.renderArea.offset = vk::Offset2D{ 0, 0 };
-        rpBegin.renderArea.extent = swapchain.extent;
-        rpBegin.clearValueCount   = 1;
-        rpBegin.pClearValues      = &clearColor;
+        vk::ClearValue clearColor = vk::ClearColorValue{ std::array<float, 4>{ 0.0f, 0.0f, 0.0f, 0.0f } };
 
-        cb.beginRenderPass( rpBegin, vk::SubpassContents::eInline );
+        // Transition image to COLOR_ATTACHMENT_OPTIMAL for rendering
+        vk::ImageMemoryBarrier preBarrier{};
+        preBarrier.srcAccessMask = {};
+        preBarrier.dstAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+        preBarrier.oldLayout     = vk::ImageLayout::eUndefined;
+        preBarrier.newLayout     = vk::ImageLayout::eColorAttachmentOptimal;
+        preBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        preBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        preBarrier.image = swapchain.images[imageIndex];
+        preBarrier.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;
+        preBarrier.subresourceRange.baseMipLevel   = 0;
+        preBarrier.subresourceRange.levelCount     = 1;
+        preBarrier.subresourceRange.baseArrayLayer = 0;
+        preBarrier.subresourceRange.layerCount     = 1;
+        cb.pipelineBarrier(
+          vk::PipelineStageFlagBits::eTopOfPipe,
+          vk::PipelineStageFlagBits::eColorAttachmentOutput,
+          {},
+          nullptr,
+          nullptr,
+          preBarrier );
+
+        // Begin dynamic rendering
+        vk::RenderingAttachmentInfo colorAttachment{};
+        colorAttachment.sType       = vk::StructureType::eRenderingAttachmentInfo;
+        colorAttachment.imageView   = *swapchain.imageViews[imageIndex];
+        colorAttachment.imageLayout = vk::ImageLayout::eColorAttachmentOptimal;
+        colorAttachment.loadOp      = vk::AttachmentLoadOp::eClear;
+        colorAttachment.storeOp     = vk::AttachmentStoreOp::eStore;
+        colorAttachment.clearValue  = clearColor;
+
+        vk::RenderingInfo renderingInfo{};
+        renderingInfo.sType                = vk::StructureType::eRenderingInfo;
+        renderingInfo.renderArea.offset    = vk::Offset2D{ 0, 0 };
+        renderingInfo.renderArea.extent    = swapchain.extent;
+        renderingInfo.layerCount           = 1;
+        renderingInfo.colorAttachmentCount = 1;
+        renderingInfo.pColorAttachments    = &colorAttachment;
+
+        cb.beginRendering( renderingInfo );
         ImGui_ImplVulkan_RenderDrawData( ImGui::GetDrawData(), *cb );
-        cb.endRenderPass();
+        cb.endRendering();
+
+        // Transition image to PRESENT_SRC_KHR for presentation
+        vk::ImageMemoryBarrier postBarrier{};
+        postBarrier.srcAccessMask = vk::AccessFlagBits::eColorAttachmentWrite;
+        postBarrier.dstAccessMask = {};
+        postBarrier.oldLayout     = vk::ImageLayout::eColorAttachmentOptimal;
+        postBarrier.newLayout     = vk::ImageLayout::ePresentSrcKHR;
+        postBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        postBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        postBarrier.image = swapchain.images[imageIndex];
+        postBarrier.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;
+        postBarrier.subresourceRange.baseMipLevel   = 0;
+        postBarrier.subresourceRange.levelCount     = 1;
+        postBarrier.subresourceRange.baseArrayLayer = 0;
+        postBarrier.subresourceRange.layerCount     = 1;
+        cb.pipelineBarrier(
+          vk::PipelineStageFlagBits::eColorAttachmentOutput,
+          vk::PipelineStageFlagBits::eBottomOfPipe,
+          {},
+          nullptr,
+          nullptr,
+          postBarrier );
         cb.end();
 
         vk::PipelineStageFlags waitStages = vk::PipelineStageFlagBits::eColorAttachmentOutput;

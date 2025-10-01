@@ -16,27 +16,27 @@ int main()
     vk::ApplicationInfo applicationInfo( AppName.c_str(), 1, EngineName.c_str(), 1, VK_API_VERSION_1_3 );
 
     // initialize the vk::InstanceCreateInfo
-    std::vector<const char *> layers{ "VK_LAYER_KHRONOS_validation" };
-    std::vector<const char *> extensions{ VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
-    vk::InstanceCreateInfo    instanceCreateInfo( {}, &applicationInfo, {}, extensions );
+    // std::vector<const char *> layers{ "VK_LAYER_KHRONOS_validation" };
+    // std::vector<const char *> extensions{ VK_EXT_DEBUG_UTILS_EXTENSION_NAME };
+    vk::InstanceCreateInfo    instanceCreateInfo( {}, &applicationInfo, {}, {} );
 
     // create an Instance
     vk::raii::Instance instance( context, instanceCreateInfo );
 
     // #if !defined( NDEBUG )
     // Debug messenger create info
-    vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = {};
-    debugUtilsMessengerCreateInfo.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-                                                    vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
-    debugUtilsMessengerCreateInfo.messageType =
-      vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
+    // vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = {};
+    // debugUtilsMessengerCreateInfo.messageSeverity = vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
+    //                                                 vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+    // debugUtilsMessengerCreateInfo.messageType =
+    //   vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
 
-    // Assign the callback function directly
-    debugUtilsMessengerCreateInfo.pfnUserCallback = core::debugUtilsMessengerCallback;
+    // // Assign the callback function directly
+    // debugUtilsMessengerCreateInfo.pfnUserCallback = core::debugUtilsMessengerCallback;
 
-    // Create the debug messenger
-    vk::raii::DebugUtilsMessengerEXT debugUtilsMessenger( instance, debugUtilsMessengerCreateInfo );
-    // #endif
+    // // Create the debug messenger
+    // vk::raii::DebugUtilsMessengerEXT debugUtilsMessenger( instance, debugUtilsMessengerCreateInfo );
+    // // #endif
 
     // enumerate the physicalDevices
     vk::raii::PhysicalDevices physicalDevices( instance );
@@ -64,6 +64,8 @@ int main()
 
       // std::cout << "pipelineCacheUUID: " << vk::su::UUID( properties.pipelineCacheUUID ) << "\n\n";
     }
+
+    vk::raii::PhysicalDevice physicalDevice = core::selectPhysicalDevice( physicalDevices );
   }
   catch ( vk::SystemError & err )
   {

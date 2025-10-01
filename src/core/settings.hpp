@@ -19,7 +19,7 @@
 #include <vector>
 
 #if defined( DEBUG ) || !defined( NDEBUG )
-#  define isDebug( code ) code
+#  define isDebug( code ) 
 #else
 #  define isDebug( code )
 #endif
@@ -48,15 +48,16 @@ namespace core
   // List of required device extensions
   inline const std::vector<const char *> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-    VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+    // VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, // included by default in vk 1.3+
     VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME, // todo implement usage
-    VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME, // todo implement
-    VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, // todo
-    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,// todo
-    VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME, // todo
+    // VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME, // included by default in vk 1.3+
+    // VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, // included by default in vk 1.2+
+    // VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,// // included by default in vk 1.2+ todo
+    // VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME, // todo // included by default in vk 1.2+
+    VK_KHR_MAINTENANCE_7_EXTENSION_NAME, // todo
     VK_KHR_MAINTENANCE_8_EXTENSION_NAME, // todo
-    VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME, //todo
-    VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, // todo
+    // VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME, //todo // included by default in vk 1.4+
+    // VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME, // todo // included by default in vk 1.4+
     VK_EXT_SHADER_OBJECT_EXTENSION_NAME // todo
 
     // Add more device extensions here if needed

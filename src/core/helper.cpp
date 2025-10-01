@@ -6,6 +6,7 @@
 #include <fstream>
 #include <print>
 #include <vulkan/vulkan.hpp>
+#include <vulkan/vulkan_structs.hpp>
 
 namespace core
 {
@@ -27,12 +28,11 @@ namespace core
       1,  // application version
       engineName.c_str(),
       1,  // engine version
-      VK_API_VERSION_1_4 );
-    // applicationInfo.sType = vk::StructureType::eApplicationInfo;
+      VK_API_VERSION_1_3 );
+    applicationInfo.sType = vk::StructureType::eApplicationInfo;
 
-    // applicationInfo.sType = vk::StructureType::eApplicationInfo;
     vk::InstanceCreateInfo instanceCreateInfo( {}, &applicationInfo, layers, extensions );
-    // instanceCreateInfo.sType = vk::StructureType::eInstanceCreateInfo;
+    instanceCreateInfo.sType = vk::StructureType::eInstanceCreateInfo;
 // #if defined(DEBUG) || !defined(NDEBUG)
 //     vk::DebugUtilsMessengerCreateInfoEXT debugUtilsMessengerCreateInfo = core::createDebugUtilsMessengerCreateInfo();
 //     instanceCreateInfo.pNext = &debugUtilsMessengerCreateInfo;
@@ -181,10 +181,58 @@ namespace core
       queueCreateInfos.push_back( vk::DeviceQueueCreateInfo{}.setQueueFamilyIndex( queueFamily ).setQueueCount( 1 ).setPQueuePriorities( &queuePriority ) );
     }
 
-    // Enable dynamic rendering feature
-    vk::PhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature{};
-    dynamicRenderingFeature.sType = vk::StructureType::ePhysicalDeviceDynamicRenderingFeatures;
-    dynamicRenderingFeature.dynamicRendering = VK_TRUE;
+    vk::PhysicalDeviceVulkan14Features vulkan14Features{};
+    vulkan14Features.sType = vk::StructureType::ePhysicalDeviceVulkan14Features;
+    vulkan14Features.pushDescriptor = VK_TRUE;
+    vulkan14Features.maintenance5 = VK_TRUE;
+    vulkan14Features.maintenance6 = VK_TRUE;
+    vulkan14Features.smoothLines = VK_TRUE;
+
+    // vulkan14Features
+
+    // Chain Vulkan 1.3 feature structs instead of deprecated KHR extension feature structs
+    vk::PhysicalDeviceVulkan13Features vulkan13Features{};
+    vulkan13Features.sType = vk::StructureType::ePhysicalDeviceVulkan13Features;
+    vulkan13Features.dynamicRendering = VK_TRUE;
+    vulkan13Features.synchronization2 = VK_TRUE;
+    vulkan13Features.maintenance4 = VK_TRUE;
+    // vulkan13Features.
+    vulkan14Features.pNext = &vulkan13Features;
+    // vulkan13Features
+
+    // Descriptor indexing (core in 1.2, still enable specific bits via the 1.2 struct if needed)
+    vk::PhysicalDeviceVulkan12Features vulkan12Features{};
+    vulkan12Features.sType = vk::StructureType::ePhysicalDeviceVulkan12Features;
+    vulkan12Features.descriptorIndexing = VK_TRUE;
+    vulkan12Features.runtimeDescriptorArray = VK_TRUE;
+    vulkan12Features.descriptorBindingPartiallyBound = VK_TRUE;
+    vulkan12Features.descriptorBindingVariableDescriptorCount = VK_TRUE;
+    vulkan12Features.descriptorIndexing = VK_TRUE;
+    vulkan12Features.bufferDeviceAddress = VK_TRUE;
+    vulkan12Features.timelineSemaphore = VK_TRUE;
+    // vulkan12Features.
+    vulkan13Features.pNext = &vulkan12Features;
+
+
+    vk::PhysicalDeviceVulkan11Features vulkan11Features{};
+    vulkan11Features.sType = vk::StructureType::ePhysicalDeviceVulkan11Features;
+    vulkan11Features.shaderDrawParameters = VK_TRUE;
+    // vulkan11Features.
+    // vulkan11Features.
+    vulkan12Features.pNext = &vulkan11Features;
+
+    // Base features
+    vk::PhysicalDeviceFeatures2 deviceFeatures2{};
+    deviceFeatures2.sType = vk::StructureType::ePhysicalDeviceFeatures2;
+
+    vk::PhysicalDeviceFeatures features{};
+    features.samplerAnisotropy = VK_TRUE;
+    features.fillModeNonSolid = VK_TRUE;
+    // features.
+    features.wideLines = VK_TRUE;
+    
+    deviceFeatures2.features = features;
+    vulkan11Features.pNext = &deviceFeatures2;
 
     // Test if deviceExtensions are supported
     {
@@ -203,8 +251,25 @@ namespace core
 
     vk::DeviceCreateInfo deviceCreateInfo{};
     deviceCreateInfo.setQueueCreateInfos( queueCreateInfos );
-    deviceCreateInfo.setPEnabledExtensionNames( core::deviceExtensions );
-    deviceCreateInfo.pNext = &dynamicRenderingFeature;
+    // Enabled extensions (optionally add pageable device local memory if available)
+    std::vector<const char*> finalExtensions = core::deviceExtensions;
+    {
+      auto avail = physicalDevice.enumerateDeviceExtensionProperties();
+      for (auto const& ep : avail) {
+        if (std::string(ep.extensionName) == VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME) {
+          finalExtensions.push_back(VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME);
+          // Chain pageable feature
+          static vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableFeatures{};
+          pageableFeatures.sType = vk::StructureType::ePhysicalDevicePageableDeviceLocalMemoryFeaturesEXT;
+          pageableFeatures.pageableDeviceLocalMemory = VK_TRUE;
+          deviceFeatures2.pNext = &pageableFeatures;
+          break;
+        }
+      }
+    }
+    deviceCreateInfo.setPEnabledExtensionNames( finalExtensions );
+    deviceCreateInfo.pNext = &vulkan14Features;
+    deviceCreateInfo.pEnabledFeatures = nullptr; // Using features2 chain
 
     DeviceBundle bundle{};
     bundle.indices       = indices;
@@ -296,7 +361,7 @@ namespace core
     createInfo.imageColorSpace  = surfaceFormat.colorSpace;
     createInfo.imageExtent      = extent;
     createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage       = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage;
+    createInfo.imageUsage       = vk::ImageUsageFlagBits::eColorAttachment;
 
     uint32_t queueFamilyIndices[] = { indices.graphicsFamily, indices.presentFamily };
     if ( indices.graphicsFamily != indices.presentFamily )
@@ -407,17 +472,17 @@ namespace core
     inputAssembly.topology               = vk::PrimitiveTopology::eTriangleStrip;
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-    vk::Viewport viewport{};
-    viewport.x        = 0.0f;
-    viewport.y        = 0.0f;
-    viewport.width    = static_cast<float>( extent.width );
-    viewport.height   = static_cast<float>( extent.height );
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
+    // vk::Viewport viewport{};
+    // viewport.x        = 0.0f;
+    // viewport.y        = 0.0f;
+    // viewport.width    = static_cast<float>( extent.width );
+    // viewport.height   = static_cast<float>( extent.height );
+    // viewport.minDepth = 0.0f;
+    // viewport.maxDepth = 1.0f;
 
-    vk::Rect2D scissor{};
-    scissor.offset = vk::Offset2D{ 0, 0 };
-    scissor.extent = extent;
+    // vk::Rect2D scissor{};
+    // scissor.offset = vk::Offset2D{ 0, 0 };
+    // scissor.extent = extent;
 
     vk::PipelineViewportStateCreateInfo viewportState{};
     viewportState.viewportCount = 1;
@@ -482,7 +547,7 @@ namespace core
   {
     CommandResources          res{};
     vk::CommandPoolCreateInfo poolInfo{};
-    poolInfo.flags            = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
+    poolInfo.flags            = {};
     poolInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
     res.pool                  = vk::raii::CommandPool( device, poolInfo );
 
@@ -550,6 +615,7 @@ namespace core
       sc.extent = extent;
       std::array<vk::Rect2D, 1> scissors{ sc };
       cb.setScissor( 0, scissors );
+      // cb.set
       
       cb.draw( 3, 1, 0, 0 );
       cb.endRendering();
