@@ -1,6 +1,9 @@
 #include "bootstrap.hpp"
 
 #include <string>
+#include <set>
+#include <limits>
+#include <algorithm>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_structs.hpp>
 
@@ -190,8 +193,10 @@ namespace core
     // Declare at function scope (before the extension loop)
     vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableFeatures{};
     vk::PhysicalDeviceShaderObjectFeaturesEXT              shaderObject{};
-    bool                                                   enablePageable     = false;
-    bool                                                   enableShaderObject = false;
+    vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT     extendedDynamicState3{};
+    bool                                                   enablePageable            = false;
+    bool                                                   enableShaderObject        = false;
+    bool                                                   enableExtendedDynState3   = false;
 
     // In your loop:
     for ( auto const & ep : avail )
@@ -207,6 +212,11 @@ namespace core
       {
         finalExtensions.push_back( VK_EXT_SHADER_OBJECT_EXTENSION_NAME );
         enableShaderObject = true;
+      }
+      if ( extName == VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME )
+      {
+        finalExtensions.push_back( VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME );
+        enableExtendedDynState3 = true;
       }
     }
     // After the loop, build the pNext chain properly:
@@ -224,6 +234,44 @@ namespace core
       pageableFeatures.pageableDeviceLocalMemory = VK_TRUE;
       pageableFeatures.pNext                     = chainTail;
       chainTail                                  = &pageableFeatures;
+    }
+
+    if ( enableExtendedDynState3 )
+    {
+      // Enable all Extended Dynamic State 3 features
+      extendedDynamicState3.extendedDynamicState3TessellationDomainOrigin      = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3DepthClampEnable              = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3PolygonMode                   = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3RasterizationSamples          = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3SampleMask                    = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3AlphaToCoverageEnable         = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3AlphaToOneEnable              = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3LogicOpEnable                 = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3ColorBlendEnable              = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3ColorBlendEquation            = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3ColorWriteMask                = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3RasterizationStream           = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3ConservativeRasterizationMode = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3ExtraPrimitiveOverestimationSize = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3DepthClipEnable               = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3SampleLocationsEnable         = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3ColorBlendAdvanced            = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3ProvokingVertexMode           = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3LineRasterizationMode         = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3LineStippleEnable             = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3DepthClipNegativeOneToOne    = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3ViewportWScalingEnable        = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3ViewportSwizzle              = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3CoverageToColorEnable         = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3CoverageToColorLocation       = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3CoverageModulationMode        = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3CoverageModulationTableEnable = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3CoverageModulationTable       = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3CoverageReductionMode         = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3RepresentativeFragmentTestEnable = VK_TRUE;
+      extendedDynamicState3.extendedDynamicState3ShadingRateImageEnable        = VK_TRUE;
+      extendedDynamicState3.pNext = chainTail;
+      chainTail                   = &extendedDynamicState3;
     }
 
     // Update the head of the chain

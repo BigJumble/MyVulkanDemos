@@ -39,7 +39,7 @@
 - [x] Raster triangle example
 - [x] Resisable window
 - [x] Integrate ImGui
-- [ ] Refactor to use Vulkan 1.4 features for less bloat
+- [x] Refactor to use Vulkan 1.4 features for less bloat
 - [ ] Use EnTT for model/entity management
 - [x] Implement compute-based Game of Life demo
 - [ ] Implement ray tracing demo

@@ -4,9 +4,9 @@
 namespace core
 {
 
-  vk::raii::Instance createInstance( vk::raii::Context & context, const std::string & appName, const std::string & engineName );
+  [[nodiscard]] vk::raii::Instance createInstance( vk::raii::Context & context, const std::string & appName, const std::string & engineName );
 
-  vk::raii::PhysicalDevice selectPhysicalDevice( const vk::raii::PhysicalDevices & devices );
+  [[nodiscard]] vk::raii::PhysicalDevice selectPhysicalDevice( const vk::raii::PhysicalDevices & devices );
 
   // contains window and sufrace
   struct DisplayBundle
@@ -40,7 +40,7 @@ namespace core
     }
   };
 
-  QueueFamilyIndices findQueueFamilies( const vk::raii::PhysicalDevice & physicalDevice, const vk::raii::SurfaceKHR & surface );
+  [[nodiscard]] QueueFamilyIndices findQueueFamilies( const vk::raii::PhysicalDevice & physicalDevice, const vk::raii::SurfaceKHR & surface );
 
   struct DeviceBundle
   {
@@ -51,7 +51,7 @@ namespace core
     QueueFamilyIndices indices;
   };
 
-  DeviceBundle createDeviceWithQueues( const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices );
+  [[nodiscard]] DeviceBundle createDeviceWithQueues( const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices );
 
   struct SwapchainSupportDetails
   {
@@ -69,15 +69,15 @@ namespace core
     std::vector<vk::raii::ImageView> imageViews;  // views created for each swapchain image
   };
 
-  SwapchainSupportDetails querySwapchainSupport( const vk::raii::PhysicalDevice & physicalDevice, const vk::raii::SurfaceKHR & surface );
+  [[nodiscard]] SwapchainSupportDetails querySwapchainSupport( const vk::raii::PhysicalDevice & physicalDevice, const vk::raii::SurfaceKHR & surface );
 
-  vk::SurfaceFormatKHR chooseSwapSurfaceFormat( const std::vector<vk::SurfaceFormatKHR> & availableFormats );
+  [[nodiscard]] vk::SurfaceFormatKHR chooseSwapSurfaceFormat( const std::vector<vk::SurfaceFormatKHR> & availableFormats );
 
-  vk::PresentModeKHR chooseSwapPresentMode( const std::vector<vk::PresentModeKHR> & availablePresentModes );
+  [[nodiscard]] vk::PresentModeKHR chooseSwapPresentMode( const std::vector<vk::PresentModeKHR> & availablePresentModes );
 
-  vk::Extent2D chooseSwapExtent( const vk::SurfaceCapabilitiesKHR & capabilities, const vk::Extent2D & desiredExtent );
+  [[nodiscard]] vk::Extent2D chooseSwapExtent( const vk::SurfaceCapabilitiesKHR & capabilities, const vk::Extent2D & desiredExtent );
 
-  SwapchainBundle createSwapchain(
+  [[nodiscard]] SwapchainBundle createSwapchain(
     const vk::raii::PhysicalDevice & physicalDevice,
     const vk::raii::Device &         device,
     const vk::raii::SurfaceKHR &     surface,
@@ -86,9 +86,9 @@ namespace core
     const vk::raii::SwapchainKHR *   oldSwapchain = nullptr );
 
   // Reads a SPIR-V binary file into a vector<uint32_t>
-  std::vector<uint32_t> readSpirvFile( const std::string & filePath );
+  [[nodiscard]] std::vector<uint32_t> readSpirvFile( const std::string & filePath );
 
   // Creates a shader module from SPIR-V code
-  vk::raii::ShaderModule createShaderModule( const vk::raii::Device & device, const std::vector<uint32_t> & spirv );
+  [[nodiscard]] vk::raii::ShaderModule createShaderModule( const vk::raii::Device & device, const std::vector<uint32_t> & spirv );
 
 }  // namespace core
