@@ -2,6 +2,7 @@
 # add_subdirectory(basic)
 add_subdirectory(clean-tri)
 add_subdirectory(clean-tri-resize)
+add_subdirectory(synctest)
 # add_subdirectory(testing)
 # add_subdirectory(triangle)
 # add_subdirectory(tri-window)
