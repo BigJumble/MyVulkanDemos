@@ -1,9 +1,9 @@
 #include "bootstrap.hpp"
 
-#include <string>
-#include <set>
-#include <limits>
 #include <algorithm>
+#include <limits>
+#include <set>
+#include <string>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_structs.hpp>
 
@@ -137,55 +137,57 @@ namespace core
     }
 
     // --- Query supported features ---
-    vk::PhysicalDeviceVulkan14Features supported14{};
-    vk::PhysicalDeviceVulkan13Features supported13{};
-    vk::PhysicalDeviceVulkan12Features supported12{};
-    vk::PhysicalDeviceVulkan11Features supported11{};
-    vk::PhysicalDeviceFeatures2        supported2{};
+    vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT supportedExtendedDynamicState3{};
+    vk::PhysicalDeviceVulkan14Features                 supported14{};
+    vk::PhysicalDeviceVulkan13Features                 supported13{};
+    vk::PhysicalDeviceVulkan12Features                 supported12{};
+    vk::PhysicalDeviceVulkan11Features                 supported11{};
+    vk::PhysicalDeviceFeatures2                        supported2{};
 
-    supported2.pNext  = &supported11;
-    supported11.pNext = &supported12;
-    supported12.pNext = &supported13;
-    supported13.pNext = &supported14;
+    supported2.setPNext( &supported11 );
+    supported11.setPNext( &supported12 );
+    supported12.setPNext( &supported13 );
+    supported13.setPNext( &supported14 );
+    supported14.setPNext( &supportedExtendedDynamicState3 );
 
     vkGetPhysicalDeviceFeatures2( static_cast<VkPhysicalDevice>( *physicalDevice ), reinterpret_cast<VkPhysicalDeviceFeatures2 *>( &supported2 ) );
 
     // --- Enable selectively ---
     vk::PhysicalDeviceVulkan14Features vulkan14Features{};
-    vulkan14Features.pushDescriptor = supported14.pushDescriptor;
-    vulkan14Features.maintenance5   = supported14.maintenance5;
-    vulkan14Features.maintenance6   = supported14.maintenance6;
-    vulkan14Features.smoothLines    = supported14.smoothLines;
+    vulkan14Features.setPushDescriptor( supported14.pushDescriptor );
+    vulkan14Features.setMaintenance5( supported14.maintenance5 );
+    vulkan14Features.setMaintenance6( supported14.maintenance6 );
+    vulkan14Features.setSmoothLines( supported14.smoothLines );
 
     vk::PhysicalDeviceVulkan13Features vulkan13Features{};
-    vulkan13Features.dynamicRendering = supported13.dynamicRendering;
-    vulkan13Features.synchronization2 = supported13.synchronization2;
-    vulkan13Features.maintenance4     = supported13.maintenance4;
-    vulkan14Features.pNext            = &vulkan13Features;
+    vulkan13Features.setDynamicRendering( supported13.dynamicRendering );
+    vulkan13Features.setSynchronization2( supported13.synchronization2 );
+    vulkan13Features.setMaintenance4( supported13.maintenance4 );
+    vulkan14Features.setPNext( &vulkan13Features );
 
     vk::PhysicalDeviceVulkan12Features vulkan12Features{};
-    vulkan12Features.descriptorIndexing                       = supported12.descriptorIndexing;
-    vulkan12Features.runtimeDescriptorArray                   = supported12.runtimeDescriptorArray;
-    vulkan12Features.descriptorBindingPartiallyBound          = supported12.descriptorBindingPartiallyBound;
-    vulkan12Features.descriptorBindingVariableDescriptorCount = supported12.descriptorBindingVariableDescriptorCount;
-    vulkan12Features.bufferDeviceAddress                      = supported12.bufferDeviceAddress;
-    vulkan12Features.timelineSemaphore                        = supported12.timelineSemaphore;
-    vulkan13Features.pNext                                    = &vulkan12Features;
+    vulkan12Features.setDescriptorIndexing( supported12.descriptorIndexing );
+    vulkan12Features.setRuntimeDescriptorArray( supported12.runtimeDescriptorArray );
+    vulkan12Features.setDescriptorBindingPartiallyBound( supported12.descriptorBindingPartiallyBound );
+    vulkan12Features.setDescriptorBindingVariableDescriptorCount( supported12.descriptorBindingVariableDescriptorCount );
+    vulkan12Features.setBufferDeviceAddress( supported12.bufferDeviceAddress );
+    vulkan12Features.setTimelineSemaphore( supported12.timelineSemaphore );
+    vulkan13Features.setPNext( &vulkan12Features );
 
     vk::PhysicalDeviceVulkan11Features vulkan11Features{};
-    vulkan11Features.shaderDrawParameters = supported11.shaderDrawParameters;
-    vulkan12Features.pNext                = &vulkan11Features;
+    vulkan11Features.setShaderDrawParameters( supported11.shaderDrawParameters );
+    vulkan12Features.setPNext( &vulkan11Features );
 
     // --- Core features ---
     vk::PhysicalDeviceFeatures2 deviceFeatures2{};
 
     vk::PhysicalDeviceFeatures features{};
-    features.samplerAnisotropy = supported2.features.samplerAnisotropy;
-    features.fillModeNonSolid  = supported2.features.fillModeNonSolid;
-    features.wideLines         = supported2.features.wideLines;
+    features.setSamplerAnisotropy( supported2.features.samplerAnisotropy );
+    features.setFillModeNonSolid( supported2.features.fillModeNonSolid );
+    features.setWideLines( supported2.features.wideLines );
 
-    deviceFeatures2.features = features;
-    vulkan11Features.pNext   = &deviceFeatures2;
+    deviceFeatures2.setFeatures( features );
+    vulkan11Features.setPNext( &deviceFeatures2 );
 
     // --- Extensions ---
     std::vector<const char *> finalExtensions = core::deviceExtensions;
@@ -194,9 +196,9 @@ namespace core
     vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableFeatures{};
     vk::PhysicalDeviceShaderObjectFeaturesEXT              shaderObject{};
     vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT     extendedDynamicState3{};
-    bool                                                   enablePageable            = false;
-    bool                                                   enableShaderObject        = false;
-    bool                                                   enableExtendedDynState3   = false;
+    bool                                                   enablePageable          = false;
+    bool                                                   enableShaderObject      = false;
+    bool                                                   enableExtendedDynState3 = false;
 
     // In your loop:
     for ( auto const & ep : avail )
@@ -224,63 +226,63 @@ namespace core
 
     if ( enableShaderObject )
     {
-      shaderObject.shaderObject = VK_TRUE;
-      shaderObject.pNext        = chainTail;
-      chainTail                 = &shaderObject;
+      shaderObject.setShaderObject( VK_TRUE );
+      shaderObject.setPNext( chainTail );
+      chainTail = &shaderObject;
     }
 
     if ( enablePageable )
     {
-      pageableFeatures.pageableDeviceLocalMemory = VK_TRUE;
-      pageableFeatures.pNext                     = chainTail;
-      chainTail                                  = &pageableFeatures;
+      pageableFeatures.setPageableDeviceLocalMemory( VK_TRUE );
+      pageableFeatures.setPNext( chainTail );
+      chainTail = &pageableFeatures;
     }
 
     if ( enableExtendedDynState3 )
     {
       // Enable all Extended Dynamic State 3 features
-      extendedDynamicState3.extendedDynamicState3TessellationDomainOrigin      = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3DepthClampEnable              = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3PolygonMode                   = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3RasterizationSamples          = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3SampleMask                    = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3AlphaToCoverageEnable         = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3AlphaToOneEnable              = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3LogicOpEnable                 = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3ColorBlendEnable              = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3ColorBlendEquation            = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3ColorWriteMask                = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3RasterizationStream           = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3ConservativeRasterizationMode = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3ExtraPrimitiveOverestimationSize = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3DepthClipEnable               = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3SampleLocationsEnable         = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3ColorBlendAdvanced            = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3ProvokingVertexMode           = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3LineRasterizationMode         = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3LineStippleEnable             = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3DepthClipNegativeOneToOne    = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3ViewportWScalingEnable        = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3ViewportSwizzle              = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3CoverageToColorEnable         = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3CoverageToColorLocation       = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3CoverageModulationMode        = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3CoverageModulationTableEnable = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3CoverageModulationTable       = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3CoverageReductionMode         = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3RepresentativeFragmentTestEnable = VK_TRUE;
-      extendedDynamicState3.extendedDynamicState3ShadingRateImageEnable        = VK_TRUE;
-      extendedDynamicState3.pNext = chainTail;
-      chainTail                   = &extendedDynamicState3;
+      extendedDynamicState3.setExtendedDynamicState3TessellationDomainOrigin( supportedExtendedDynamicState3.extendedDynamicState3TessellationDomainOrigin );
+      extendedDynamicState3.setExtendedDynamicState3DepthClampEnable( supportedExtendedDynamicState3.extendedDynamicState3DepthClampEnable );
+      extendedDynamicState3.setExtendedDynamicState3PolygonMode( supportedExtendedDynamicState3.extendedDynamicState3PolygonMode );
+      extendedDynamicState3.setExtendedDynamicState3RasterizationSamples( supportedExtendedDynamicState3.extendedDynamicState3RasterizationSamples );
+      extendedDynamicState3.setExtendedDynamicState3SampleMask( supportedExtendedDynamicState3.extendedDynamicState3SampleMask );
+      extendedDynamicState3.setExtendedDynamicState3AlphaToCoverageEnable( supportedExtendedDynamicState3.extendedDynamicState3AlphaToCoverageEnable );
+      extendedDynamicState3.setExtendedDynamicState3AlphaToOneEnable( supportedExtendedDynamicState3.extendedDynamicState3AlphaToOneEnable );
+      extendedDynamicState3.setExtendedDynamicState3LogicOpEnable( supportedExtendedDynamicState3.extendedDynamicState3LogicOpEnable );
+      extendedDynamicState3.setExtendedDynamicState3ColorBlendEnable( supportedExtendedDynamicState3.extendedDynamicState3ColorBlendEnable );
+      extendedDynamicState3.setExtendedDynamicState3ColorBlendEquation( supportedExtendedDynamicState3.extendedDynamicState3ColorBlendEquation );
+      extendedDynamicState3.setExtendedDynamicState3ColorWriteMask( supportedExtendedDynamicState3.extendedDynamicState3ColorWriteMask );
+      extendedDynamicState3.setExtendedDynamicState3RasterizationStream( supportedExtendedDynamicState3.extendedDynamicState3RasterizationStream );
+      extendedDynamicState3.setExtendedDynamicState3ConservativeRasterizationMode( supportedExtendedDynamicState3.extendedDynamicState3ConservativeRasterizationMode );
+      extendedDynamicState3.setExtendedDynamicState3ExtraPrimitiveOverestimationSize( supportedExtendedDynamicState3.extendedDynamicState3ExtraPrimitiveOverestimationSize );
+      extendedDynamicState3.setExtendedDynamicState3DepthClipEnable( supportedExtendedDynamicState3.extendedDynamicState3DepthClipEnable );
+      extendedDynamicState3.setExtendedDynamicState3SampleLocationsEnable( supportedExtendedDynamicState3.extendedDynamicState3SampleLocationsEnable );
+      extendedDynamicState3.setExtendedDynamicState3ColorBlendAdvanced( supportedExtendedDynamicState3.extendedDynamicState3ColorBlendAdvanced );
+      extendedDynamicState3.setExtendedDynamicState3ProvokingVertexMode( supportedExtendedDynamicState3.extendedDynamicState3ProvokingVertexMode );
+      extendedDynamicState3.setExtendedDynamicState3LineRasterizationMode( supportedExtendedDynamicState3.extendedDynamicState3LineRasterizationMode );
+      extendedDynamicState3.setExtendedDynamicState3LineStippleEnable( supportedExtendedDynamicState3.extendedDynamicState3LineStippleEnable );
+      extendedDynamicState3.setExtendedDynamicState3DepthClipNegativeOneToOne( supportedExtendedDynamicState3.extendedDynamicState3DepthClipNegativeOneToOne );
+      extendedDynamicState3.setExtendedDynamicState3ViewportWScalingEnable( supportedExtendedDynamicState3.extendedDynamicState3ViewportWScalingEnable );
+      extendedDynamicState3.setExtendedDynamicState3ViewportSwizzle( supportedExtendedDynamicState3.extendedDynamicState3ViewportSwizzle );
+      extendedDynamicState3.setExtendedDynamicState3CoverageToColorEnable( supportedExtendedDynamicState3.extendedDynamicState3CoverageToColorEnable );
+      extendedDynamicState3.setExtendedDynamicState3CoverageToColorLocation( supportedExtendedDynamicState3.extendedDynamicState3CoverageToColorLocation );
+      extendedDynamicState3.setExtendedDynamicState3CoverageModulationMode( supportedExtendedDynamicState3.extendedDynamicState3CoverageModulationMode );
+      extendedDynamicState3.setExtendedDynamicState3CoverageModulationTableEnable( supportedExtendedDynamicState3.extendedDynamicState3CoverageModulationTableEnable );
+      extendedDynamicState3.setExtendedDynamicState3CoverageModulationTable( supportedExtendedDynamicState3.extendedDynamicState3CoverageModulationTable );
+      extendedDynamicState3.setExtendedDynamicState3CoverageReductionMode( supportedExtendedDynamicState3.extendedDynamicState3CoverageReductionMode );
+      extendedDynamicState3.setExtendedDynamicState3RepresentativeFragmentTestEnable( supportedExtendedDynamicState3.extendedDynamicState3RepresentativeFragmentTestEnable );
+      extendedDynamicState3.setExtendedDynamicState3ShadingRateImageEnable( supportedExtendedDynamicState3.extendedDynamicState3ShadingRateImageEnable );
+      extendedDynamicState3.setPNext( chainTail );
+      chainTail = &extendedDynamicState3;
     }
 
     // Update the head of the chain
-    deviceFeatures2.pNext = chainTail;
+    deviceFeatures2.setPNext( chainTail );
     // --- Device create info ---
     vk::DeviceCreateInfo deviceCreateInfo{};
     deviceCreateInfo.setQueueCreateInfos( queueCreateInfos );
     deviceCreateInfo.setPEnabledExtensionNames( finalExtensions );
-    deviceCreateInfo.pNext = &vulkan14Features;
+    deviceCreateInfo.setPNext( &vulkan14Features );
 
     // --- Create device + queues ---
     DeviceBundle bundle{};
@@ -367,21 +369,21 @@ namespace core
     }
 
     vk::SwapchainCreateInfoKHR createInfo{};
-    createInfo.surface          = *surface;
-    createInfo.minImageCount    = imageCount;
-    createInfo.imageFormat      = surfaceFormat.format;
-    createInfo.imageColorSpace  = surfaceFormat.colorSpace;
-    createInfo.imageExtent      = extent;
-    createInfo.imageArrayLayers = 1;
-    createInfo.imageUsage       = vk::ImageUsageFlagBits::eColorAttachment;
-    createInfo.imageSharingMode = vk::SharingMode::eExclusive;
-    createInfo.preTransform     = support.capabilities.currentTransform;
-    createInfo.compositeAlpha   = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-    createInfo.presentMode      = presentMode;
-    createInfo.clipped          = VK_TRUE;
+    createInfo.setSurface( *surface );
+    createInfo.setMinImageCount( imageCount );
+    createInfo.setImageFormat( surfaceFormat.format );
+    createInfo.setImageColorSpace( surfaceFormat.colorSpace );
+    createInfo.setImageExtent( extent );
+    createInfo.setImageArrayLayers( 1 );
+    createInfo.setImageUsage( vk::ImageUsageFlagBits::eColorAttachment );
+    createInfo.setImageSharingMode( vk::SharingMode::eExclusive );
+    createInfo.setPreTransform( support.capabilities.currentTransform );
+    createInfo.setCompositeAlpha( vk::CompositeAlphaFlagBitsKHR::eOpaque );
+    createInfo.setPresentMode( presentMode );
+    createInfo.setClipped( VK_TRUE );
     if ( oldSwapchain && static_cast<VkSwapchainKHR>( **oldSwapchain ) != VK_NULL_HANDLE )
     {
-      createInfo.oldSwapchain = **oldSwapchain;
+      createInfo.setOldSwapchain( **oldSwapchain );
     }
 
     SwapchainBundle bundle{};
@@ -393,20 +395,24 @@ namespace core
     bundle.imageViews.reserve( bundle.images.size() );
     for ( const vk::Image & image : bundle.images )
     {
-      vk::ImageViewCreateInfo viewInfo{};                                          // Create an image view create info struct
-      viewInfo.image                           = image;                            // The image to create a view for
-      viewInfo.viewType                        = vk::ImageViewType::e2D;           // 2D texture view
-      viewInfo.format                          = bundle.imageFormat;               // Format matches swapchain image format
-      viewInfo.components.r                    = vk::ComponentSwizzle::eIdentity;  // No swizzle for R
-      viewInfo.components.g                    = vk::ComponentSwizzle::eIdentity;  // No swizzle for G
-      viewInfo.components.b                    = vk::ComponentSwizzle::eIdentity;  // No swizzle for B
-      viewInfo.components.a                    = vk::ComponentSwizzle::eIdentity;  // No swizzle for A
-      viewInfo.subresourceRange.aspectMask     = vk::ImageAspectFlagBits::eColor;  // View color aspect
-      viewInfo.subresourceRange.baseMipLevel   = 0;                                // Start at first mip level
-      viewInfo.subresourceRange.levelCount     = 1;                                // Only one mip level
-      viewInfo.subresourceRange.baseArrayLayer = 0;                                // Start at first array layer
-      viewInfo.subresourceRange.layerCount     = 1;                                // Only one array layer
-      bundle.imageViews.emplace_back( device, viewInfo );                          // Create and store the image view
+      vk::ImageViewCreateInfo viewInfo{};  // Create an image view create info struct
+      vk::ComponentMapping    components{};
+      components.setR( vk::ComponentSwizzle::eIdentity );  // No swizzle for R
+      components.setG( vk::ComponentSwizzle::eIdentity );  // No swizzle for G
+      components.setB( vk::ComponentSwizzle::eIdentity );  // No swizzle for B
+      components.setA( vk::ComponentSwizzle::eIdentity );  // No swizzle for A
+      vk::ImageSubresourceRange subresourceRange{};
+      subresourceRange.setAspectMask( vk::ImageAspectFlagBits::eColor );  // View color aspect
+      subresourceRange.setBaseMipLevel( 0 );                              // Start at first mip level
+      subresourceRange.setLevelCount( 1 );                                // Only one mip level
+      subresourceRange.setBaseArrayLayer( 0 );                            // Start at first array layer
+      subresourceRange.setLayerCount( 1 );                                // Only one array layer
+      viewInfo.setImage( image );                                         // The image to create a view for
+      viewInfo.setViewType( vk::ImageViewType::e2D );                     // 2D texture view
+      viewInfo.setFormat( bundle.imageFormat );                           // Format matches swapchain image format
+      viewInfo.setComponents( components );
+      viewInfo.setSubresourceRange( subresourceRange );
+      bundle.imageViews.emplace_back( device, viewInfo );  // Create and store the image view
     }
 
     return bundle;
@@ -434,8 +440,8 @@ namespace core
   vk::raii::ShaderModule createShaderModule( const vk::raii::Device & device, const std::vector<uint32_t> & spirv )
   {
     vk::ShaderModuleCreateInfo createInfo{};
-    createInfo.codeSize = spirv.size() * sizeof( uint32_t );
-    createInfo.pCode    = spirv.data();
+    createInfo.setCodeSize( spirv.size() * sizeof( uint32_t ) );
+    createInfo.setPCode( spirv.data() );
     return vk::raii::ShaderModule( device, createInfo );
   }
 }  // namespace core

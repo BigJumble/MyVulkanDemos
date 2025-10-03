@@ -172,7 +172,7 @@ int main()
           continue;
         }
         uint32_t imageIndex = acquire.second;
-        std::println( "imageIndex: {}", imageIndex );
+        // std::println( "imageIndex: {}", imageIndex );
         // Record command buffer for this frame (use currentFrame, not imageIndex)
         auto & cmd = cmds[currentFrame];
         cmd.reset();
