@@ -196,13 +196,18 @@ namespace core
     vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableFeatures{};
     vk::PhysicalDeviceShaderObjectFeaturesEXT              shaderObject{};
     vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT     extendedDynamicState3{};
+    vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR     swapchainMaintenance1{};
+
     bool                                                   enablePageable          = false;
     bool                                                   enableShaderObject      = false;
     bool                                                   enableExtendedDynState3 = false;
+    bool                                                   enableSwapchainMaintenance1 = false;
+
 
     // In your loop:
     for ( auto const & ep : avail )
     {
+      // std::println( "Extension: {}", (std::string)ep.extensionName );
       std::string extName( ep.extensionName );
       if ( extName == VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME )
       {
@@ -220,7 +225,14 @@ namespace core
         finalExtensions.push_back( VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME );
         enableExtendedDynState3 = true;
       }
+      if ( extName == VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME )
+      {
+        finalExtensions.push_back( VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME );
+        enableSwapchainMaintenance1 = true;
+      }
     }
+    // finalExtensions.push_back( VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME );
+    // enableSwapchainMaintenance1 = true;
     // After the loop, build the pNext chain properly:
     void * chainTail = deviceFeatures2.pNext;
 
@@ -274,6 +286,12 @@ namespace core
       extendedDynamicState3.setExtendedDynamicState3ShadingRateImageEnable( supportedExtendedDynamicState3.extendedDynamicState3ShadingRateImageEnable );
       extendedDynamicState3.setPNext( chainTail );
       chainTail = &extendedDynamicState3;
+    }
+    if ( enableSwapchainMaintenance1 )
+    {
+      swapchainMaintenance1.setSwapchainMaintenance1( VK_TRUE );
+      swapchainMaintenance1.setPNext( chainTail );
+      chainTail = &swapchainMaintenance1;
     }
 
     // Update the head of the chain
@@ -385,6 +403,12 @@ namespace core
     {
       createInfo.setOldSwapchain( **oldSwapchain );
     }
+
+    // Add VkSwapchainPresentModesCreateInfoKHR to inform implementation about swapchain maintenance awareness
+    vk::SwapchainPresentModesCreateInfoEXT presentModesInfo{};
+    presentModesInfo.setPresentModeCount( 1 );
+    presentModesInfo.setPPresentModes( &presentMode );
+    createInfo.setPNext( &presentModesInfo );
 
     SwapchainBundle bundle{};
     bundle.swapchain   = vk::raii::SwapchainKHR( device, createInfo );

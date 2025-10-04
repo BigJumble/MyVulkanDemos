@@ -183,33 +183,36 @@ int main()
     vk::raii::CommandPool     commandPool{ deviceBundle.device, cmdPoolInfo };
 
     // Frames in flight - independent of swapchain image count
-    constexpr size_t MAX_FRAMES_IN_FLIGHT = 2;
+    constexpr size_t MAX_FRAMES_IN_FLIGHT = 3;
 
     vk::CommandBufferAllocateInfo cmdInfo{ commandPool, vk::CommandBufferLevel::ePrimary, MAX_FRAMES_IN_FLIGHT };
     vk::raii::CommandBuffers      cmds{ deviceBundle.device, cmdInfo };
 
-    // Simplified synchronization using only one timeline semaphore for learning purposes
-    // This is less efficient but much simpler to understand
-    vk::SemaphoreTypeCreateInfo timelineCreateInfo{};
-    timelineCreateInfo.setSemaphoreType( vk::SemaphoreType::eTimeline ).setInitialValue( 0 );
 
-    vk::SemaphoreCreateInfo timelineSemaphoreInfo{};
-    timelineSemaphoreInfo.setPNext( &timelineCreateInfo );
 
-    // Single timeline semaphore for all synchronization
-    vk::raii::Semaphore syncSemaphore{ deviceBundle.device, timelineSemaphoreInfo };
-    uint64_t            currentTimelineValue = 0;
+    // vk::SemaphoreTypeCreateInfo timelineCreateInfo{};
+    // timelineCreateInfo.setSemaphoreType( vk::SemaphoreType::eTimeline ).setInitialValue( 0 );
+
+    // vk::SemaphoreCreateInfo timelineSemaphoreInfo{};
+    // timelineSemaphoreInfo.setPNext( &timelineCreateInfo );
+
+    // vk::raii::Semaphore syncSemaphore{ deviceBundle.device, timelineSemaphoreInfo };
+    // uint64_t            currentTimelineValue = 0;
 
     // Create per-frame binary semaphores for image acquisition and presentation
-    // One pair per frame in flight - tied to command buffers, not swapchain images
-    std::array<vk::raii::Semaphore, MAX_FRAMES_IN_FLIGHT> imageAvailableSemaphores{
-      vk::raii::Semaphore{ deviceBundle.device, vk::SemaphoreCreateInfo{} },
-      vk::raii::Semaphore{ deviceBundle.device, vk::SemaphoreCreateInfo{} }
-    };
-    std::array<vk::raii::Semaphore, MAX_FRAMES_IN_FLIGHT> renderFinishedSemaphores{
-      vk::raii::Semaphore{ deviceBundle.device, vk::SemaphoreCreateInfo{} },
-      vk::raii::Semaphore{ deviceBundle.device, vk::SemaphoreCreateInfo{} }
-    };
+    std::vector<vk::raii::Semaphore> imageAvailableSemaphores;
+    std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
+    std::vector<vk::raii::Fence> presentFences;
+
+    imageAvailableSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
+    renderFinishedSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
+    presentFences.reserve(MAX_FRAMES_IN_FLIGHT);
+
+    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
+      imageAvailableSemaphores.emplace_back(deviceBundle.device, vk::SemaphoreCreateInfo{});
+      renderFinishedSemaphores.emplace_back(deviceBundle.device, vk::SemaphoreCreateInfo{});
+      presentFences.emplace_back(deviceBundle.device, vk::FenceCreateInfo{vk::FenceCreateFlagBits::eSignaled});
+    }
 
     bool framebufferResized = false;
     // Set a pointer to framebufferResized so the resize callback can modify it
@@ -217,6 +220,7 @@ int main()
     // Register a callback function to be called when the window is resized
     glfwSetFramebufferSizeCallback( displayBundle.window, framebufferResizeCallback );
 
+    // std::this_thread::sleep_for(std::chrono::milliseconds(500));
     size_t currentFrame = 0;
 
     while ( !glfwWindowShouldClose( displayBundle.window ) )
@@ -234,18 +238,24 @@ int main()
       {
         // Wait for the previous frame to finish before starting a new one
         // This ensures we don't exceed MAX_FRAMES_IN_FLIGHT
-        if ( currentTimelineValue >= MAX_FRAMES_IN_FLIGHT )
-        {
-          uint64_t              waitValue = ( currentTimelineValue - MAX_FRAMES_IN_FLIGHT + 1 );
-          vk::SemaphoreWaitInfo waitInfo{};
-          waitInfo.setSemaphoreCount( 1 ).setPSemaphores( &*syncSemaphore ).setPValues( &waitValue );
+        // if ( currentTimelineValue >= MAX_FRAMES_IN_FLIGHT )
+        // {
+        //   uint64_t              waitValue = ( currentTimelineValue - MAX_FRAMES_IN_FLIGHT + 1 );
+        //   vk::SemaphoreWaitInfo waitInfo{};
+        //   waitInfo.setSemaphoreCount( 1 ).setPSemaphores( &*syncSemaphore ).setPValues( &waitValue );
 
-          (void)deviceBundle.device.waitSemaphores( waitInfo, UINT64_MAX );
-        }
+        //   (void)deviceBundle.device.waitSemaphores( waitInfo, UINT64_MAX );
+        // }
 
-        // Get semaphores for current frame in flight
+        // Get synchronization objects for current frame in flight
         auto & imageAvailable = imageAvailableSemaphores[currentFrame];
         auto & renderFinished = renderFinishedSemaphores[currentFrame];
+        auto & presentFence   = presentFences[currentFrame];
+
+        // Wait for the presentation fence from previous use of this frame slot
+        // Wait for the present fence to be signaled before reusing this frame slot
+        (void)deviceBundle.device.waitForFences( { *presentFence }, VK_TRUE, UINT64_MAX );
+        deviceBundle.device.resetFences( { *presentFence } );
 
         // Acquire next swapchain image using the imageAvailable semaphore
         auto acquire = swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailable, nullptr );
@@ -255,21 +265,21 @@ int main()
           continue;
         }
         uint32_t imageIndex = acquire.second;
-
+        // std::println( "imageIndex: {}", imageIndex );
         // Record command buffer for this frame
         auto & cmd = cmds[currentFrame];
         recordCommandBuffer( cmd, vertShaderObject, fragShaderObject, swapchainBundle, imageIndex );
 
         // Submit command buffer waiting on imageAvailable, signal renderFinished and timeline
-        uint64_t renderCompleteValue = ++currentTimelineValue;
+        // uint64_t renderCompleteValue = ++currentTimelineValue;
 
         std::array<vk::SemaphoreSubmitInfo, 1> waitSemaphoreInfos = {
           vk::SemaphoreSubmitInfo{}.setSemaphore( *imageAvailable ).setStageMask( vk::PipelineStageFlagBits2::eColorAttachmentOutput )
         };
 
-        std::array<vk::SemaphoreSubmitInfo, 2> signalSemaphoreInfos = {
+        std::array<vk::SemaphoreSubmitInfo, 1> signalSemaphoreInfos = {
           vk::SemaphoreSubmitInfo{}.setSemaphore( *renderFinished ).setStageMask( vk::PipelineStageFlagBits2::eAllCommands ),
-          vk::SemaphoreSubmitInfo{}.setSemaphore( *syncSemaphore ).setValue( renderCompleteValue ).setStageMask( vk::PipelineStageFlagBits2::eAllCommands )
+          // vk::SemaphoreSubmitInfo{}.setSemaphore( *syncSemaphore ).setValue( renderCompleteValue ).setStageMask( vk::PipelineStageFlagBits2::eAllCommands )
         };
 
         vk::CommandBufferSubmitInfo cmdBufferInfo{};
@@ -283,9 +293,13 @@ int main()
 
         deviceBundle.graphicsQueue.submit2( submitInfo );
 
-        // Present with renderFinished semaphore
+
+        vk::SwapchainPresentFenceInfoKHR presentFenceInfo{};
+        presentFenceInfo.setSwapchainCount( 1 ).setPFences( &*presentFence );
+
         vk::PresentInfoKHR presentInfo{};
-        presentInfo.setWaitSemaphoreCount( 1 )
+        presentInfo.setPNext( &presentFenceInfo )
+          .setWaitSemaphoreCount( 1 )
           .setPWaitSemaphores( &*renderFinished )
           .setSwapchainCount( 1 )
           .setPSwapchains( &*swapchainBundle.swapchain )

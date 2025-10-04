@@ -1,6 +1,7 @@
 #pragma once
 // #include <vulkan/vulkan_core.h>
 // #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
+#include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_raii.hpp>
 #include <vulkan/vulkan_handles.hpp>
 #include <vulkan/vulkan_structs.hpp>
@@ -52,6 +53,7 @@ namespace core
   // List of required device extensions
   inline const std::vector<const char *> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+    // VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME,  // Enables fences with presentation
     // VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME, // included by default in vk 1.3+
     // VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME,  // Features enabled in bootstrap.cpp
     // VK_KHR_SYNCHRONIZATION_2_EXTENSION_NAME, // included by default in vk 1.3+
@@ -71,6 +73,8 @@ namespace core
   // List of required instance extensions
   inline const std::vector<const char *> InstanceExtensions = {
     VK_KHR_SURFACE_EXTENSION_NAME,
+    VK_EXT_SURFACE_MAINTENANCE_1_EXTENSION_NAME, // sometime in the future, it will be included in the core spec
+    VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME,
 #if defined( VK_USE_PLATFORM_ANDROID_KHR )
     VK_KHR_ANDROID_SURFACE_EXTENSION_NAME,
 #elif defined( VK_USE_PLATFORM_METAL_EXT )
