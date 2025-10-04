@@ -411,7 +411,7 @@ int main()
     vk::raii::CommandPool     commandPool{ deviceBundle.device, cmdPoolInfo };
 
     // Frames in flight
-    constexpr size_t MAX_FRAMES_IN_FLIGHT = 3;
+    constexpr size_t MAX_FRAMES_IN_FLIGHT = 2;
 
     vk::CommandBufferAllocateInfo cmdInfo{ commandPool, vk::CommandBufferLevel::ePrimary, MAX_FRAMES_IN_FLIGHT };
     vk::raii::CommandBuffers      graphicsCmds{ deviceBundle.device, cmdInfo };
@@ -535,7 +535,6 @@ int main()
         auto & presentFence   = presentFences[currentFrame];
 
         (void)deviceBundle.device.waitForFences( { *presentFence }, VK_TRUE, UINT64_MAX );
-        deviceBundle.device.resetFences( { *presentFence } );
 
         auto acquire = swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailable, nullptr );
         if ( acquire.first == vk::Result::eErrorOutOfDateKHR )
@@ -544,6 +543,9 @@ int main()
           continue;
         }
         uint32_t imageIndex = acquire.second;
+
+        // Only reset the fence after successful image acquisition to prevent deadlock on exception
+        deviceBundle.device.resetFences( { *presentFence } );
 
         auto & cmd = graphicsCmds[currentFrame];
         recordGraphicsCommandBuffer( cmd, vertShaderObject, fragShaderObject, graphicsPipelineLayout, swapchainBundle, imageIndex, graphicsDescriptorSets[0] );
@@ -567,7 +569,7 @@ int main()
 
         deviceBundle.graphicsQueue.submit2( submitInfo );
 
-        vk::SwapchainPresentFenceInfoKHR presentFenceInfo{};
+        vk::SwapchainPresentFenceInfoEXT presentFenceInfo{};
         presentFenceInfo.setSwapchainCount( 1 ).setPFences( &*presentFence );
 
         vk::PresentInfoKHR presentInfo{};

@@ -196,7 +196,7 @@ namespace core
     vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableFeatures{};
     vk::PhysicalDeviceShaderObjectFeaturesEXT              shaderObject{};
     vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT     extendedDynamicState3{};
-    vk::PhysicalDeviceSwapchainMaintenance1FeaturesKHR     swapchainMaintenance1{};
+    vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT     swapchainMaintenance1{};
 
     bool                                                   enablePageable          = false;
     bool                                                   enableShaderObject      = false;

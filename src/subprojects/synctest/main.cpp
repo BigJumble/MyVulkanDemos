@@ -137,7 +137,7 @@ static void recreateSwapchain(
 int main()
 {
   /* VULKAN_HPP_KEY_START */
-  isDebug( std::println( "LOADING UP CLEAR-TRI-RESIZE EXAMPLE!\n" ); );
+  isDebug( std::println( "LOADING UP SYNCTEST EXAMPLE!\n" ); );
   try
   {
     vk::raii::Context context;
@@ -183,7 +183,7 @@ int main()
     vk::raii::CommandPool     commandPool{ deviceBundle.device, cmdPoolInfo };
 
     // Frames in flight - independent of swapchain image count
-    constexpr size_t MAX_FRAMES_IN_FLIGHT = 3;
+    constexpr size_t MAX_FRAMES_IN_FLIGHT = 2;
 
     vk::CommandBufferAllocateInfo cmdInfo{ commandPool, vk::CommandBufferLevel::ePrimary, MAX_FRAMES_IN_FLIGHT };
     vk::raii::CommandBuffers      cmds{ deviceBundle.device, cmdInfo };
@@ -255,16 +255,17 @@ int main()
         // Wait for the presentation fence from previous use of this frame slot
         // Wait for the present fence to be signaled before reusing this frame slot
         (void)deviceBundle.device.waitForFences( { *presentFence }, VK_TRUE, UINT64_MAX );
-        deviceBundle.device.resetFences( { *presentFence } );
 
         // Acquire next swapchain image using the imageAvailable semaphore
         auto acquire = swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailable, nullptr );
         if ( acquire.first == vk::Result::eErrorOutOfDateKHR )
         {
-          recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices );
-          continue;
+          throw acquire.first;
         }
         uint32_t imageIndex = acquire.second;
+
+        // Only reset the fence after successful image acquisition to prevent deadlock on exception
+        deviceBundle.device.resetFences( { *presentFence } );
         // std::println( "imageIndex: {}", imageIndex );
         // Record command buffer for this frame
         auto & cmd = cmds[currentFrame];
@@ -294,7 +295,7 @@ int main()
         deviceBundle.graphicsQueue.submit2( submitInfo );
 
 
-        vk::SwapchainPresentFenceInfoKHR presentFenceInfo{};
+        vk::SwapchainPresentFenceInfoEXT presentFenceInfo{};
         presentFenceInfo.setSwapchainCount( 1 ).setPFences( &*presentFence );
 
         vk::PresentInfoKHR presentInfo{};
@@ -309,7 +310,7 @@ int main()
 
         if ( presentRes == vk::Result::eSuboptimalKHR || presentRes == vk::Result::eErrorOutOfDateKHR )
         {
-          recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices );
+            throw presentRes;
         }
 
         currentFrame = ( currentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
