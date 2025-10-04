@@ -1,0 +1,48 @@
+#version 450
+
+// Compute shader that generates a procedural texture
+// Work group size: 16x16 threads
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+// Output storage image (RGBA8)
+layout(binding = 0, rgba8) uniform writeonly image2D outputImage;
+
+void main() {
+    // Get the global invocation ID (pixel coordinates)
+    ivec2 pixelCoords = ivec2(gl_GlobalInvocationID.xy);
+    
+    // Get image dimensions
+    ivec2 imageDims = imageSize(outputImage);
+    
+    // Check if we're within bounds
+    if (pixelCoords.x >= imageDims.x || pixelCoords.y >= imageDims.y) {
+        return;
+    }
+    
+    // Normalize coordinates to [0, 1]
+    vec2 uv = vec2(pixelCoords) / vec2(imageDims);
+    
+    // Generate a colorful procedural pattern
+    // Combine multiple patterns for visual interest
+    
+    // Pattern 1: Radial gradient from center
+    vec2 center = vec2(0.5, 0.5);
+    float dist = length(uv - center);
+    
+    // Pattern 2: Checkerboard
+    float checker = mod(floor(uv.x * 8.0) + floor(uv.y * 8.0), 2.0);
+    
+    // Pattern 3: Animated sine waves
+    float wave = sin(uv.x * 10.0) * 0.5 + 0.5;
+    float wave2 = cos(uv.y * 10.0) * 0.5 + 0.5;
+    
+    // Combine patterns to create final color
+    vec3 color;
+    color.r = mix(wave, dist, 0.5);
+    color.g = mix(wave2, checker, 0.3);
+    color.b = 1.0 - dist;
+    
+    // Write to output image
+    imageStore(outputImage, pixelCoords, vec4(color, 1.0));
+}
+
