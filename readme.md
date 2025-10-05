@@ -40,6 +40,9 @@
 - [x] Resisable window
 - [x] Integrate ImGui
 - [x] Refactor to use Vulkan 1.4 features for less bloat
+- [x] Implement SPIRV-reflect for shader descriptor set layouts
+- [ ] shaderc - compile shaders realtime and hotreload them on modify
+- [ ] Implement Vulkan Memory Allocator (VMA)
 - [ ] Use EnTT for model/entity management
 - [x] Implement compute-based Game of Life demo
 - [ ] Implement ray tracing demo
