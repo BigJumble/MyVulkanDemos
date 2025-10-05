@@ -61,6 +61,63 @@ set(SPIRV_REFLECT_INSTALL OFF)
 add_subdirectory(src/external/SPIRV-Reflect)
 
 # -------------------
+# SPIRV-Headers (required by SPIRV-Tools)
+# -------------------
+add_subdirectory(src/external/SPIRV-Headers)
+
+# -------------------
+# SPIRV-Tools (required by shaderc)
+# -------------------
+set(SPIRV_SKIP_TESTS ON CACHE INTERNAL "")
+set(SPIRV_SKIP_EXECUTABLES ON CACHE INTERNAL "")
+set(SPIRV_WERROR OFF CACHE INTERNAL "")
+
+add_subdirectory(src/external/SPIRV-Tools)
+
+# -------------------
+# glslang (required by shaderc)
+# -------------------
+set(ENABLE_GLSLANG_BINARIES OFF CACHE INTERNAL "")
+set(ENABLE_SPVREMAPPER OFF CACHE INTERNAL "")
+set(SKIP_GLSLANG_INSTALL ON CACHE INTERNAL "")
+set(ENABLE_CTEST OFF CACHE INTERNAL "")
+
+add_subdirectory(src/external/glslang)
+
+# -------------------
+# nlohmann/json (header-only)
+# -------------------
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+set(JSON_Install OFF CACHE INTERNAL "")
+
+add_subdirectory(src/external/json)
+
+# -------------------
+# sol2 (header-only)
+# -------------------
+set(SOL2_BUILD_LUA OFF CACHE INTERNAL "")
+set(SOL2_LUA_VERSION "5.4.7" CACHE STRING "")
+set(SOL2_ENABLE_INSTALL OFF CACHE INTERNAL "")
+
+add_subdirectory(src/external/sol2)
+
+# -------------------
+# shaderc
+# -------------------
+set(SHADERC_SKIP_INSTALL ON CACHE INTERNAL "")
+set(SHADERC_SKIP_TESTS ON CACHE INTERNAL "")
+set(SHADERC_SKIP_EXAMPLES ON CACHE INTERNAL "")
+set(SHADERC_SKIP_COPYRIGHT_CHECK ON CACHE INTERNAL "")
+set(SHADERC_SKIP_ASCIIDOCTOR ON CACHE INTERNAL "")
+
+add_subdirectory(src/external/shaderc)
+
+# -------------------
+# Vulkan Memory Allocator (header-only)
+# -------------------
+add_subdirectory(src/external/VulkanMemoryAllocator)
+
+# -------------------
 # Core library
 # -------------------
 add_subdirectory(src/core)

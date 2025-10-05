@@ -29,13 +29,13 @@ namespace core
   struct QueueFamilyIndices
   {
     std::optional<uint32_t> graphicsFamily;  // For ray tracing + graphics + compute post processing + presentation
-                                             //   std::optional<uint32_t> presentFamily; // no support for niche hardware
+    std::optional<uint32_t> presentFamily;   // no support for niche hardware
     std::optional<uint32_t> computeFamily;   // For async compute physics simulation
 
     bool isComplete() const
     {
       return graphicsFamily.has_value() &&
-             //  presentFamily.has_value() &&
+             presentFamily.has_value() &&
              computeFamily.has_value();
     }
   };
@@ -46,8 +46,8 @@ namespace core
   {
     vk::raii::Device device{ nullptr };
     vk::raii::Queue  graphicsQueue{ nullptr };
-    //   vk::raii::Queue presentQueue{nullptr};
-    vk::raii::Queue    computeQueue{ nullptr };
+    vk::raii::Queue  presentQueue{ nullptr };
+    vk::raii::Queue  computeQueue{ nullptr };
     QueueFamilyIndices indices;
   };
 

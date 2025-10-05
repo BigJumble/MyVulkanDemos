@@ -4,13 +4,18 @@ add_library(core STATIC
     ${BASE_SOURCES}
 )
 target_link_libraries(
-        core PUBLIC 
-        glfw
-        Vulkan::Vulkan
-        glm
-        imgui
-        EnTT::EnTT
-        spirv-reflect-static)
+    core PUBLIC 
+    glfw
+    Vulkan::Vulkan
+    glm
+    imgui
+    EnTT::EnTT
+    spirv-reflect-static
+    nlohmann_json::nlohmann_json
+    sol2::sol2
+    shaderc
+    VulkanMemoryAllocator
+)
 
 target_include_directories(core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

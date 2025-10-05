@@ -96,14 +96,14 @@ namespace core
       if ( ( props.queueFlags & vk::QueueFlagBits::eGraphics ) && !indices.graphicsFamily.has_value() )
       {
         indices.graphicsFamily = i;
-        if ( !physicalDevice.getSurfaceSupportKHR( i, *surface ) )
-        {
-          throw std::runtime_error( "Graphics Queue Family does not support surface presentation." );
-        }
         if ( !( props.queueFlags & vk::QueueFlagBits::eCompute ) )
         {
           throw std::runtime_error( "Graphics Queue Family does not support compute." );
         }
+      }
+      if ( physicalDevice.getSurfaceSupportKHR( i, *surface ) && !indices.presentFamily.has_value() )
+      {
+        indices.presentFamily = i;
       }
       if ( ( props.queueFlags & vk::QueueFlagBits::eCompute ) )
       {
@@ -119,6 +119,7 @@ namespace core
       throw std::runtime_error( "Required queue families not found." );
     }
     isDebug( std::println( "Graphics Queue Family Index: {}", indices.graphicsFamily.value() ); );
+    isDebug( std::println( "Present Queue Family Index: {}", indices.presentFamily.value() ); );
     isDebug( std::println( "Compute Queue Family Index: {}", indices.computeFamily.value() ); );
     return indices;
   }
@@ -126,7 +127,7 @@ namespace core
   DeviceBundle createDeviceWithQueues( const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices )
   {
     // --- Queues setup ---
-    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.computeFamily.value() };
+    std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value(), indices.computeFamily.value() };
 
     float                                  queuePriority = 1.0f;
     std::vector<vk::DeviceQueueCreateInfo> queueCreateInfos;
@@ -307,6 +308,7 @@ namespace core
     bundle.indices       = indices;
     bundle.device        = vk::raii::Device( physicalDevice, deviceCreateInfo );
     bundle.graphicsQueue = vk::raii::Queue( bundle.device, indices.graphicsFamily.value(), 0 );
+    bundle.presentQueue  = vk::raii::Queue( bundle.device, indices.presentFamily.value(), 0 );
 
     if ( indices.computeFamily.has_value() )
     {
@@ -394,7 +396,20 @@ namespace core
     createInfo.setImageExtent( extent );
     createInfo.setImageArrayLayers( 1 );
     createInfo.setImageUsage( vk::ImageUsageFlagBits::eColorAttachment );
-    createInfo.setImageSharingMode( vk::SharingMode::eExclusive );
+    
+    // Configure sharing mode based on queue family indices
+    uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
+    if ( indices.graphicsFamily.value() != indices.presentFamily.value() )
+    {
+      createInfo.setImageSharingMode( vk::SharingMode::eConcurrent );
+      createInfo.setQueueFamilyIndexCount( 2 );
+      createInfo.setPQueueFamilyIndices( queueFamilyIndices );
+    }
+    else
+    {
+      createInfo.setImageSharingMode( vk::SharingMode::eExclusive );
+    }
+    
     createInfo.setPreTransform( support.capabilities.currentTransform );
     createInfo.setCompositeAlpha( vk::CompositeAlphaFlagBitsKHR::eOpaque );
     createInfo.setPresentMode( presentMode );
