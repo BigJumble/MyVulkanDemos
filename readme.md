@@ -44,6 +44,9 @@
 - [ ] shaderc - compile shaders realtime and hotreload them on modify
 - [ ] Implement Vulkan Memory Allocator (VMA)
 - [ ] Use EnTT for model/entity management
+- [ ] Implement JSON parser for saved state
+- [ ] Implement Lua for realtime code
+- [ ] EPIC: create a shadertoy mini engine, that handles shader creation, resource assignment and light scripting with lua
 - [x] Implement compute-based Game of Life demo
 - [ ] Implement ray tracing demo
 - [ ] Create cloud renderer using ray tracing
