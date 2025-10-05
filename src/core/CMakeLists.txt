@@ -9,7 +9,8 @@ target_link_libraries(
         Vulkan::Vulkan
         glm
         imgui
-        EnTT::EnTT)
+        EnTT::EnTT
+        spirv-reflect-static)
 
 target_include_directories(core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}

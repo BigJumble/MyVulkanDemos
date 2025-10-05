@@ -50,6 +50,15 @@ add_subdirectory(src/external/glm)
 
 add_subdirectory(src/external/entt)
 
+# -------------------
+# SPIRV-Reflect
+# -------------------
+set(SPIRV_REFLECT_EXECUTABLE OFF)
+set(SPIRV_REFLECT_STATIC_LIB ON)
+set(SPIRV_REFLECT_BUILD_TESTS OFF)
+set(SPIRV_REFLECT_INSTALL OFF)
+
+add_subdirectory(src/external/SPIRV-Reflect)
 
 # -------------------
 # Core library
