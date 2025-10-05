@@ -43,9 +43,9 @@ add_subdirectory(src/external/glm)
 # EnTT (header-only)
 # -------------------
 
-# set(ENTT_BUILD_TESTING OFF)
-# set(ENTT_BUILD_DOCS OFF)
-# set(ENTT_BUILD_EXAMPLES OFF)
+set(ENTT_BUILD_TESTING OFF)
+set(ENTT_BUILD_DOCS OFF)
+set(ENTT_BUILD_EXAMPLES OFF)
 # set(ENTT_INSTALL ON)
 
 add_subdirectory(src/external/entt)
@@ -118,11 +118,6 @@ add_subdirectory(src/external/shaderc)
 add_subdirectory(src/external/VulkanMemoryAllocator)
 
 # -------------------
-# Core library
-# -------------------
-add_subdirectory(src/core)
-
-# -------------------
 # ImGui
 # -------------------
 set(IMGUI_DIR src/external/imgui)
@@ -143,6 +138,11 @@ target_include_directories(imgui PUBLIC
     ${IMGUI_DIR}/backends
 )
 target_link_libraries(imgui PUBLIC glfw Vulkan::Vulkan)
+
+# -------------------
+# Core library
+# -------------------
+add_subdirectory(src/core)
 
 # -------------------
 # Executable subprojects

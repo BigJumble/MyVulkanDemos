@@ -1,4 +1,9 @@
 ## Build & Run Setup
+To clone this repository and all submodules recursively, use:
+```git clone --recurse-submodules https://github.com/BigJumble/test.git```
+
+# If you already cloned without submodules, run:
+```git submodule update --init --recursive```
 
 ### Prerequisites
 
