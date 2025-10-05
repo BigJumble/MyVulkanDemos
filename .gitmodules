@@ -13,3 +13,24 @@
 [submodule "src/external/SPIRV-Reflect"]
 	path = src/external/SPIRV-Reflect
 	url = https://github.com/KhronosGroup/SPIRV-Reflect.git
+[submodule "src/external/json"]
+	path = src/external/json
+	url = https://github.com/nlohmann/json.git
+[submodule "src/external/shaderc"]
+	path = src/external/shaderc
+	url = https://github.com/google/shaderc.git
+[submodule "src/external/sol2"]
+	path = src/external/sol2
+	url = https://github.com/ThePhD/sol2.git
+[submodule "src/external/SPIRV-Tools"]
+	path = src/external/SPIRV-Tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+[submodule "src/external/SPIRV-Headers"]
+	path = src/external/SPIRV-Headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers.git
+[submodule "src/external/glslang"]
+	path = src/external/glslang
+	url = https://github.com/KhronosGroup/glslang.git
+[submodule "src/external/VulkanMemoryAllocator"]
+	path = src/external/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
