@@ -28,8 +28,8 @@
   2. Create a `launch.json` when prompted.
   3. Edit the `"program"` line to:
      ```json
-     "program": "${workspaceFolder}/build/src/subprojects/tri-window/tri-window",
-     "cwd": "${workspaceFolder}/build/src/subprojects/tri-window",
+     "program": "${workspaceFolder}/build/src/subprojects/{subproject-name}/{subproject-name}",
+     "cwd": "${workspaceFolder}/build/src/subprojects/{subproject-name}",
      ```
 
 ---
