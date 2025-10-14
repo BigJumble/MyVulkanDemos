@@ -1,10 +1,16 @@
 #include "bootstrap.hpp"
+#include "glm/fwd.hpp"
 
 constexpr std::string_view AppName    = "MyApp";
 constexpr std::string_view EngineName = "MyEngine";
 
+struct PushConstants
+{
+  glm::vec2 pos;
+};
+
 static void recordCommandBuffer(
-  vk::raii::CommandBuffer & cmd, vk::raii::ShaderEXT & vertShaderObject, vk::raii::ShaderEXT & fragShaderObject, core::SwapchainBundle & swapchainBundle, uint32_t imageIndex )
+  vk::raii::CommandBuffer & cmd, vk::raii::ShaderEXT & vertShaderObject, vk::raii::ShaderEXT & fragShaderObject, core::SwapchainBundle & swapchainBundle, uint32_t imageIndex, vk::raii::PipelineLayout & pipelineLayout )
 {
   cmd.reset();
   cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -77,6 +83,17 @@ static void recordCommandBuffer(
   cmd.setColorBlendEquationEXT( 0, vk::ColorBlendEquationEXT{} );
   vk::ColorComponentFlags colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
   cmd.setColorWriteMaskEXT( 0, colorWriteMask );
+
+  // Set push constants using sin/cos of the current time
+  float t = static_cast<float>(glfwGetTime());
+
+ 
+  cmd.pushConstants<PushConstants>(
+    *pipelineLayout,
+    vk::ShaderStageFlagBits::eVertex,
+    0,
+    { PushConstants{ glm::vec2(std::sin(t), std::cos(t)) } }
+  );
 
   cmd.draw( 3, 1, 0, 0 );
 
@@ -159,13 +176,24 @@ int main()
     std::vector<uint32_t> vertShaderCode = core::readSpirvFile( "shaders/triangle.vert.spv" );
     std::vector<uint32_t> fragShaderCode = core::readSpirvFile( "shaders/triangle.frag.spv" );
 
+    vk::PushConstantRange pushConstantRange{};
+    pushConstantRange.setStageFlags( vk::ShaderStageFlagBits::eVertex ).setSize( sizeof( PushConstants ) ).setOffset( 0 );
+
+    vk::PipelineLayoutCreateInfo layoutInfo{};
+    layoutInfo.setPushConstantRangeCount(1)
+        .setPPushConstantRanges(&pushConstantRange);
+    
+    vk::raii::PipelineLayout pipelineLayout{deviceBundle.device, layoutInfo};
+
     vk::ShaderCreateInfoEXT vertInfo{};
     vertInfo.setStage( vk::ShaderStageFlagBits::eVertex )
       .setCodeType( vk::ShaderCodeTypeEXT::eSpirv )
       .setNextStage( vk::ShaderStageFlagBits::eFragment )
       .setPCode( vertShaderCode.data() )
       .setPName( "main" )
-      .setCodeSize( vertShaderCode.size() * sizeof( uint32_t ) );
+      .setCodeSize( vertShaderCode.size() * sizeof( uint32_t ) )
+      .setPushConstantRangeCount( 1 )
+      .setPPushConstantRanges( &pushConstantRange );
 
     vk::raii::ShaderEXT vertShaderObject{ deviceBundle.device, vertInfo };
 
@@ -187,17 +215,6 @@ int main()
 
     vk::CommandBufferAllocateInfo cmdInfo{ commandPool, vk::CommandBufferLevel::ePrimary, MAX_FRAMES_IN_FLIGHT };
     vk::raii::CommandBuffers      cmds{ deviceBundle.device, cmdInfo };
-
-
-
-    // vk::SemaphoreTypeCreateInfo timelineCreateInfo{};
-    // timelineCreateInfo.setSemaphoreType( vk::SemaphoreType::eTimeline ).setInitialValue( 0 );
-
-    // vk::SemaphoreCreateInfo timelineSemaphoreInfo{};
-    // timelineSemaphoreInfo.setPNext( &timelineCreateInfo );
-
-    // vk::raii::Semaphore syncSemaphore{ deviceBundle.device, timelineSemaphoreInfo };
-    // uint64_t            currentTimelineValue = 0;
 
     // Create per-frame binary semaphores for image acquisition and presentation
     std::vector<vk::raii::Semaphore> imageAvailableSemaphores;
@@ -236,16 +253,6 @@ int main()
 
       try
       {
-        // Wait for the previous frame to finish before starting a new one
-        // This ensures we don't exceed MAX_FRAMES_IN_FLIGHT
-        // if ( currentTimelineValue >= MAX_FRAMES_IN_FLIGHT )
-        // {
-        //   uint64_t              waitValue = ( currentTimelineValue - MAX_FRAMES_IN_FLIGHT + 1 );
-        //   vk::SemaphoreWaitInfo waitInfo{};
-        //   waitInfo.setSemaphoreCount( 1 ).setPSemaphores( &*syncSemaphore ).setPValues( &waitValue );
-
-        //   (void)deviceBundle.device.waitSemaphores( waitInfo, UINT64_MAX );
-        // }
 
         // Get synchronization objects for current frame in flight
         auto & imageAvailable = imageAvailableSemaphores[currentFrame];
@@ -269,7 +276,7 @@ int main()
         // std::println( "imageIndex: {}", imageIndex );
         // Record command buffer for this frame
         auto & cmd = cmds[currentFrame];
-        recordCommandBuffer( cmd, vertShaderObject, fragShaderObject, swapchainBundle, imageIndex );
+        recordCommandBuffer( cmd, vertShaderObject, fragShaderObject, swapchainBundle, imageIndex, pipelineLayout );
 
         // Submit command buffer waiting on imageAvailable, signal renderFinished and timeline
         // uint64_t renderCompleteValue = ++currentTimelineValue;

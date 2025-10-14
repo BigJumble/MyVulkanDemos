@@ -143,6 +143,9 @@ namespace core
     vk::PhysicalDeviceVulkan13Features                 supported13{};
     vk::PhysicalDeviceVulkan12Features                 supported12{};
     vk::PhysicalDeviceVulkan11Features                 supported11{};
+    vk::PhysicalDeviceRayTracingPipelineFeaturesKHR    supportedRayTracingPipeline{};
+    vk::PhysicalDeviceAccelerationStructureFeaturesKHR supportedAccelerationStructure{};
+    vk::PhysicalDeviceRayQueryFeaturesKHR              supportedRayQuery{};
     vk::PhysicalDeviceFeatures2                        supported2{};
 
     supported2.setPNext( &supported11 );
@@ -150,6 +153,9 @@ namespace core
     supported12.setPNext( &supported13 );
     supported13.setPNext( &supported14 );
     supported14.setPNext( &supportedExtendedDynamicState3 );
+    supportedExtendedDynamicState3.setPNext( &supportedRayTracingPipeline );
+    supportedRayTracingPipeline.setPNext( &supportedAccelerationStructure );
+    supportedAccelerationStructure.setPNext( &supportedRayQuery );
 
     vkGetPhysicalDeviceFeatures2( static_cast<VkPhysicalDevice>( *physicalDevice ), reinterpret_cast<VkPhysicalDeviceFeatures2 *>( &supported2 ) );
 
@@ -179,6 +185,27 @@ namespace core
     vulkan11Features.setShaderDrawParameters( supported11.shaderDrawParameters );
     vulkan12Features.setPNext( &vulkan11Features );
 
+    // --- Ray tracing features ---
+    vk::PhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{};
+    rayTracingPipelineFeatures.setRayTracingPipeline( supportedRayTracingPipeline.rayTracingPipeline );
+    rayTracingPipelineFeatures.setRayTracingPipelineShaderGroupHandleCaptureReplay( supportedRayTracingPipeline.rayTracingPipelineShaderGroupHandleCaptureReplay );
+    rayTracingPipelineFeatures.setRayTracingPipelineShaderGroupHandleCaptureReplayMixed( supportedRayTracingPipeline.rayTracingPipelineShaderGroupHandleCaptureReplayMixed );
+    rayTracingPipelineFeatures.setRayTracingPipelineTraceRaysIndirect( supportedRayTracingPipeline.rayTracingPipelineTraceRaysIndirect );
+    rayTracingPipelineFeatures.setRayTraversalPrimitiveCulling( supportedRayTracingPipeline.rayTraversalPrimitiveCulling );
+    vulkan11Features.setPNext( &rayTracingPipelineFeatures );
+
+    vk::PhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
+    accelerationStructureFeatures.setAccelerationStructure( supportedAccelerationStructure.accelerationStructure );
+    accelerationStructureFeatures.setAccelerationStructureCaptureReplay( supportedAccelerationStructure.accelerationStructureCaptureReplay );
+    accelerationStructureFeatures.setAccelerationStructureIndirectBuild( supportedAccelerationStructure.accelerationStructureIndirectBuild );
+    accelerationStructureFeatures.setAccelerationStructureHostCommands( supportedAccelerationStructure.accelerationStructureHostCommands );
+    accelerationStructureFeatures.setDescriptorBindingAccelerationStructureUpdateAfterBind( supportedAccelerationStructure.descriptorBindingAccelerationStructureUpdateAfterBind );
+    rayTracingPipelineFeatures.setPNext( &accelerationStructureFeatures );
+
+    vk::PhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures{};
+    rayQueryFeatures.setRayQuery( supportedRayQuery.rayQuery );
+    accelerationStructureFeatures.setPNext( &rayQueryFeatures );
+
     // --- Core features ---
     vk::PhysicalDeviceFeatures2 deviceFeatures2{};
 
@@ -188,7 +215,7 @@ namespace core
     features.setWideLines( supported2.features.wideLines );
 
     deviceFeatures2.setFeatures( features );
-    vulkan11Features.setPNext( &deviceFeatures2 );
+    rayQueryFeatures.setPNext( &deviceFeatures2 );
 
     // --- Extensions ---
     std::vector<const char *> finalExtensions = core::deviceExtensions;

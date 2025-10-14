@@ -65,6 +65,12 @@ namespace core
     // VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME, //todo // included by default in vk 1.4+
     // VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME,  // included by default in vk 1.4+
     // VK_EXT_SHADER_OBJECT_EXTENSION_NAME  // Features enabled in bootstrap.cpp
+    
+    // Ray tracing extensions
+    VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+    VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+    VK_KHR_RAY_QUERY_EXTENSION_NAME,
+    VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
 
     // Add more device extensions here if needed
   };
