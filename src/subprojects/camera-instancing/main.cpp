@@ -154,7 +154,7 @@ static void recreateSwapchain(
 int main()
 {
   /* VULKAN_HPP_KEY_START */
-  isDebug( std::println( "LOADING UP SYNCTEST EXAMPLE!\n" ); );
+  isDebug( std::println( "LOADING UP CAMERA INSTANCING EXAMPLE!\n" ); );
   try
   {
     vk::raii::Context context;

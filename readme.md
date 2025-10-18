@@ -2,7 +2,7 @@
 To clone this repository and all submodules recursively, use:
 ```git clone --recurse-submodules https://github.com/BigJumble/MyVulkanDemos.git```
 
-# If you already cloned without submodules, run:
+### If you already cloned without submodules, run:
 ```git submodule update --init --recursive```
 
 ### Prerequisites
@@ -36,10 +36,10 @@ ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonsche
 clang-format qtbase5-dev qt6-base-dev
 `
 
-### VSCode Extensions
+### VSCode/Cursor Extensions
 
-- [CMake Tools](https://marketplace.visualstudio.com/items?itemName=ms-vscode.cmake-tools)
-- [clangd](https://marketplace.visualstudio.com/items?itemName=llvm-vs-code-extensions.vscode-clangd)
+- CMake Tools
+- C/C++ 
 
 ### Configure CMake Tools
 
@@ -74,6 +74,8 @@ clang-format qtbase5-dev qt6-base-dev
 - [x] Implement Vulkan Memory Allocator (VMA)
 - [x] Implement JSON parser for saved state
 - [x] Implement Lua for realtime code
+- [ ] Make each subproject select its instance and device extentions
+- [ ] Port Shaderc shader compilation flags to settings.hpp
 - [ ] EPIC: create a shadertoy mini engine, that handles shader creation, resource assignment and light scripting with lua
 - [ ] Use EnTT for model/entity management
 - [ ] Implement compute-based Game of Life demo
@@ -81,3 +83,4 @@ clang-format qtbase5-dev qt6-base-dev
 - [ ] Create cloud renderer using ray tracing
 - [ ] Implement Verlet integration sphere physics on compute
 - [ ] Render sphere terrain using distance fields or marching cubes
+- [ ] Add OpenXR demo

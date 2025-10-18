@@ -1,5 +1,6 @@
 #pragma once
 #include "settings.hpp"
+#include "shaderobj.hpp"
 
 namespace core
 {
@@ -92,3 +93,4 @@ namespace core
   [[nodiscard]] vk::raii::ShaderModule createShaderModule( const vk::raii::Device & device, const std::vector<uint32_t> & spirv );
 
 }  // namespace core
+
