@@ -253,12 +253,12 @@ int main()
         // Use a rotating semaphore for acquire that's separate from the image-specific sync
         uint32_t acquireSemaphoreIndex = currentFrame % swapchainImageCount;
         auto     acquire               = swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailableSemaphores[acquireSemaphoreIndex], nullptr );
-        if ( acquire.first == vk::Result::eErrorOutOfDateKHR || acquire.first == vk::Result::eSuboptimalKHR )
+        if ( acquire.result == vk::Result::eErrorOutOfDateKHR || acquire.result == vk::Result::eSuboptimalKHR )
         {
           recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices );
           continue;
         }
-        uint32_t imageIndex = acquire.second;
+        uint32_t imageIndex = acquire.value;
         // std::println( "imageIndex: {}", imageIndex );
         
         // Record command buffer for this frame (use currentFrame, not imageIndex)

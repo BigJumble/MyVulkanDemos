@@ -265,11 +265,11 @@ int main()
 
         // Acquire next swapchain image using the imageAvailable semaphore
         auto acquire = swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailable, nullptr );
-        if ( acquire.first == vk::Result::eErrorOutOfDateKHR )
+        if ( acquire.result == vk::Result::eErrorOutOfDateKHR )
         {
-          throw acquire.first;
+          throw acquire.result;
         }
-        uint32_t imageIndex = acquire.second;
+        uint32_t imageIndex = acquire.value;
 
         // Only reset the fence after successful image acquisition to prevent deadlock on exception
         deviceBundle.device.resetFences( { *presentFence } );

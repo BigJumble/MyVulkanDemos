@@ -537,12 +537,12 @@ int main()
         (void)deviceBundle.device.waitForFences( { *presentFence }, VK_TRUE, UINT64_MAX );
 
         auto acquire = swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailable, nullptr );
-        if ( acquire.first == vk::Result::eErrorOutOfDateKHR )
+        if ( acquire.result == vk::Result::eErrorOutOfDateKHR )
         {
           recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices );
           continue;
         }
-        uint32_t imageIndex = acquire.second;
+        uint32_t imageIndex = acquire.value;
 
         // Only reset the fence after successful image acquisition to prevent deadlock on exception
         deviceBundle.device.resetFences( { *presentFence } );

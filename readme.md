@@ -1,16 +1,40 @@
 ## Build & Run Setup
 To clone this repository and all submodules recursively, use:
-```git clone --recurse-submodules https://github.com/BigJumble/test.git```
+```git clone --recurse-submodules https://github.com/BigJumble/MyVulkanDemos.git```
 
 # If you already cloned without submodules, run:
 ```git submodule update --init --recursive```
 
 ### Prerequisites
 
+- **Vulkan SDK 1.4.328.1 or newer required**  
+  (Older versions will not compile. [Download here](https://vulkan.lunarg.com/sdk/home))
+
 - **Linux:**  
   - Install `gcc-14` and `g++-14`
 - **Windows / macOS:**  
   - (TODO: Specify recommended compilers for these platforms)
+
+### What worked for me on Ubuntu 24.04
+
+`
+sudo apt-get install build-essential gcc-14 c++-14
+`
+
+`
+sudo apt-get install libxinerama-dev libxi-dev libxcursor-dev
+`
+
+From https://vulkan.lunarg.com/doc/view/1.4.328.1/linux/getting_started.html
+
+`
+sudo apt-get install libglm-dev cmake libxcb-dri3-0 libxcb-present0 libpciaccess0 \
+libpng-dev libxcb-keysyms1-dev libxcb-dri3-dev libx11-dev g++ gcc \
+libwayland-dev libxrandr-dev libxcb-randr0-dev libxcb-ewmh-dev \
+git python-is-python3 bison libx11-xcb-dev liblz4-dev libzstd-dev \
+ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonschema \
+clang-format qtbase5-dev qt6-base-dev
+`
 
 ### VSCode Extensions
 

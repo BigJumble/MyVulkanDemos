@@ -180,11 +180,11 @@ int main()
       {
         // Acquire using the semaphore for this frame-in-flight
         auto acquire = swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailableSemaphores[currentFrame], nullptr );
-        if ( acquire.first == vk::Result::eErrorOutOfDateKHR )
+        if ( acquire.result == vk::Result::eErrorOutOfDateKHR )
         {
           break;
         }
-        imageIndex = acquire.second;
+        imageIndex = acquire.value;
       }
       catch ( vk::OutOfDateKHRError const & )
       {
