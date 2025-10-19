@@ -76,7 +76,8 @@ clang-format qtbase5-dev qt6-base-dev
 - [x] Implement Lua for realtime code
 - [ ] Make each subproject select its instance and device extentions
 - [x] Port Shaderc shader compilation flags
-- [ ] Build abstraction for resource creation with VMA and SPIR-V Reflect
+- [ ] Build abstraction for resource creation with VMA and SPIR-V Reflect (maybe someday)
+- [ ] Model view projection matrix, camera controller
 - [ ] EPIC: create a shadertoy mini engine, that handles shader creation, resource assignment and light scripting with lua
 - [ ] Use EnTT for model/entity management
 - [ ] Implement compute-based Game of Life demo
