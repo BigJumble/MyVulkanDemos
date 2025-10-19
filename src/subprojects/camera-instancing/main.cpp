@@ -1,8 +1,8 @@
 #include "bootstrap.hpp"
-#include "glm/fwd.hpp"
 #include "helper.hpp"
 #include "settings.hpp"
 
+#include <glm/glm.hpp>
 #include <print>
 
 constexpr std::string_view AppName    = "MyApp";
