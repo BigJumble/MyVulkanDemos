@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(TARGET_NAME camera-instancing)
+set(TARGET_NAME tri-vbuf)
 
 # Set output directory for this specific subproject
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${TARGET_NAME})
@@ -18,7 +18,7 @@ target_link_libraries(${TARGET_NAME}
 add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_CURRENT_SOURCE_DIR}/shaders
-    ${CMAKE_BINARY_DIR}/bin/camera-instancing/shaders
+    ${CMAKE_BINARY_DIR}/bin/tri-vbuf/shaders
     COMMENT "Copying shaders to build directory"
 )
 
