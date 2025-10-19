@@ -13,13 +13,20 @@ struct PushConstants
   glm::vec2 pos;
 };
 
+struct Vertex
+{
+  glm::vec2 position;
+  glm::vec3 color;
+};
+
 static void recordCommandBuffer(
   vk::raii::CommandBuffer &  cmd,
   vk::raii::ShaderEXT &      vertShaderObject,
   vk::raii::ShaderEXT &      fragShaderObject,
   core::SwapchainBundle &    swapchainBundle,
   uint32_t                   imageIndex,
-  vk::raii::PipelineLayout & pipelineLayout )
+  vk::raii::PipelineLayout & pipelineLayout,
+  vk::raii::Buffer &         vertexBuffer )
 {
   cmd.reset();
   cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -28,7 +35,7 @@ static void recordCommandBuffer(
   subresourceRange.setAspectMask( vk::ImageAspectFlagBits::eColor ).setLevelCount( 1 ).setLayerCount( 1 );
 
   vk::ImageMemoryBarrier2 barrier{};
-  barrier.setSrcStageMask( vk::PipelineStageFlagBits2::eTopOfPipe )
+  barrier.setSrcStageMask( vk::PipelineStageFlagBits2::eColorAttachmentOutput )
     .setSrcAccessMask( vk::AccessFlagBits2::eNone )
     .setDstStageMask( vk::PipelineStageFlagBits2::eColorAttachmentOutput )
     .setDstAccessMask( vk::AccessFlagBits2::eColorAttachmentWrite )
@@ -71,7 +78,21 @@ static void recordCommandBuffer(
   cmd.setViewportWithCount( viewport );
   cmd.setScissorWithCount( scissor );
 
-  cmd.setVertexInputEXT( {}, {} );
+  // Set up vertex input state
+  vk::VertexInputBindingDescription2EXT bindingDesc{};
+  bindingDesc.setBinding( 0 ).setStride( sizeof( Vertex ) ).setInputRate( vk::VertexInputRate::eVertex ).setDivisor( 1 );
+
+  std::array<vk::VertexInputAttributeDescription2EXT, 2> attributeDescs{};
+  attributeDescs[0].setLocation( 0 ).setBinding( 0 ).setFormat( vk::Format::eR32G32Sfloat ).setOffset( offsetof( Vertex, position ) );
+
+  attributeDescs[1].setLocation( 1 ).setBinding( 0 ).setFormat( vk::Format::eR32G32B32Sfloat ).setOffset( offsetof( Vertex, color ) );
+
+  cmd.setVertexInputEXT( bindingDesc, attributeDescs );
+
+  // Bind vertex buffer
+  vk::DeviceSize offset = 0;
+  cmd.bindVertexBuffers( 0, { *vertexBuffer }, { offset } );
+
   cmd.setRasterizerDiscardEnable( VK_FALSE );
   cmd.setCullMode( vk::CullModeFlagBits::eNone );
   cmd.setFrontFace( vk::FrontFace::eCounterClockwise );
@@ -193,8 +214,8 @@ int main()
       .setPCode( vertShaderCode.data() )
       .setPName( "main" )
       .setCodeSize( vertShaderCode.size() * sizeof( uint32_t ) )
-    .setPushConstantRangeCount( 1 )
-    .setPPushConstantRanges( &pushConstantRange );
+      .setPushConstantRangeCount( 1 )
+      .setPPushConstantRanges( &pushConstantRange );
 
     vk::raii::ShaderEXT vertShaderObject{ deviceBundle.device, vertInfo };
 
@@ -209,6 +230,51 @@ int main()
       .setPPushConstantRanges( &pushConstantRange );
 
     vk::raii::ShaderEXT fragShaderObject{ deviceBundle.device, fragInfo };
+
+    // Create vertex buffer
+    std::array<Vertex, 3> vertices = { Vertex{ glm::vec2( 0.0f, -0.5f ), glm::vec3( 0.0f, 1.0f, 1.0f ) },
+                                       Vertex{ glm::vec2( 0.5f, 0.5f ), glm::vec3( 0.0f, 0.0f, 0.0f ) },
+                                       Vertex{ glm::vec2( -0.5f, 0.5f ), glm::vec3( 0.0f, 0.0f, 0.0f ) } };
+
+    vk::DeviceSize bufferSize = sizeof( vertices );
+
+    vk::BufferCreateInfo bufferInfo{};
+    bufferInfo.setSize( bufferSize ).setUsage( vk::BufferUsageFlagBits::eVertexBuffer ).setSharingMode( vk::SharingMode::eExclusive );
+
+    vk::raii::Buffer vertexBuffer{ deviceBundle.device, bufferInfo };
+
+    // Get memory requirements and find suitable memory type
+    vk::MemoryRequirements memRequirements = vertexBuffer.getMemoryRequirements();
+
+    vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+
+    auto findMemoryType = []( uint32_t typeFilter, vk::MemoryPropertyFlags properties, const vk::PhysicalDeviceMemoryProperties & memProps ) -> uint32_t
+    {
+      for ( uint32_t i = 0; i < memProps.memoryTypeCount; i++ )
+      {
+        if ( ( typeFilter & ( 1 << i ) ) && ( memProps.memoryTypes[i].propertyFlags & properties ) == properties )
+        {
+          return i;
+        }
+      }
+      throw std::runtime_error( "failed to find suitable memory type!" );
+    };
+
+    uint32_t memoryTypeIndex =
+      findMemoryType( memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, memProperties );
+
+    vk::MemoryAllocateInfo allocInfo{};
+    allocInfo.setAllocationSize( memRequirements.size ).setMemoryTypeIndex( memoryTypeIndex );
+
+    vk::raii::DeviceMemory vertexBufferMemory{ deviceBundle.device, allocInfo };
+
+    // Bind buffer memory
+    vertexBuffer.bindMemory( *vertexBufferMemory, 0 );
+
+    // Copy vertex data to buffer
+    void * data = vertexBufferMemory.mapMemory( 0, bufferSize );
+    memcpy( data, vertices.data(), static_cast<size_t>( bufferSize ) );
+    vertexBufferMemory.unmapMemory();
 
     vk::CommandPoolCreateInfo cmdPoolInfo{ vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamilyIndices.graphicsFamily.value() };
     vk::raii::CommandPool     commandPool{ deviceBundle.device, cmdPoolInfo };
@@ -279,7 +345,7 @@ int main()
         // std::println( "imageIndex: {}", imageIndex );
         // Record command buffer for this frame
         auto & cmd = cmds[currentFrame];
-        recordCommandBuffer( cmd, vertShaderObject, fragShaderObject, swapchainBundle, imageIndex, pipelineLayout );
+        recordCommandBuffer( cmd, vertShaderObject, fragShaderObject, swapchainBundle, imageIndex, pipelineLayout, vertexBuffer );
 
         // Submit command buffer waiting on imageAvailable, signal renderFinished and timeline
         // uint64_t renderCompleteValue = ++currentTimelineValue;

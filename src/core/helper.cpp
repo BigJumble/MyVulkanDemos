@@ -1,12 +1,13 @@
 #include "helper.hpp"
 
 #include "converter.hpp"
+#include "settings.hpp"
 
-#include <fstream>
-#include <sstream>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <print>
+#include <sstream>
 #include <stdexcept>
 
 namespace core
@@ -95,6 +96,9 @@ namespace core
 
     std::vector<uint32_t> getShaderCode( const std::string & shaderName )
     {
+      //always compile from source in debug mode
+      isDebug( std::println( "[DEBUG MODE] Compiling shader from source : {}", shaderName ); return compileShader( shaderName ); );
+
       // First, try to read from /compiled directory
       std::string compiledPath = "./compiled/" + shaderName + ".spv";
 
@@ -109,8 +113,6 @@ namespace core
       // If compiled file doesn't exist or is invalid, compile from source
       return compileShader( shaderName );
     }
-
-
 
   }  // namespace help
 }  // namespace core
