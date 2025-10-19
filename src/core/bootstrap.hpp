@@ -1,6 +1,5 @@
 #pragma once
 #include "settings.hpp"
-#include "shaderobj.hpp"
 
 namespace core
 {

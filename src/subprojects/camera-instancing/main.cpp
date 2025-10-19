@@ -1,8 +1,11 @@
 #include "bootstrap.hpp"
 #include "glm/fwd.hpp"
+#include "helper.hpp"
 
 constexpr std::string_view AppName    = "MyApp";
 constexpr std::string_view EngineName = "MyEngine";
+
+
 
 struct PushConstants
 {
@@ -52,7 +55,7 @@ static void recordCommandBuffer(
   renderingInfo.setRenderArea( renderArea ).setLayerCount( 1 ).setColorAttachmentCount( 1 ).setPColorAttachments( &colorAttachment );
 
   cmd.beginRendering( renderingInfo );
-
+  
   std::array<vk::ShaderStageFlagBits, 2> stages  = { vk::ShaderStageFlagBits::eVertex, vk::ShaderStageFlagBits::eFragment };
   std::array<vk::ShaderEXT, 2>           shaders = { *vertShaderObject, *fragShaderObject };
   cmd.bindShadersEXT( stages, shaders );
@@ -173,8 +176,8 @@ int main()
 
     core::SwapchainBundle swapchainBundle = core::createSwapchain( physicalDevice, deviceBundle.device, displayBundle.surface, displayBundle.extent, queueFamilyIndices );
 
-    std::vector<uint32_t> vertShaderCode = core::readSpirvFile( "shaders/triangle.vert.spv" );
-    std::vector<uint32_t> fragShaderCode = core::readSpirvFile( "shaders/triangle.frag.spv" );
+    std::vector<uint32_t> vertShaderCode = core::help::getShaderCode("triangle.vert");
+    std::vector<uint32_t> fragShaderCode = core::help::getShaderCode("triangle.frag");
 
     vk::PushConstantRange pushConstantRange{};
     pushConstantRange.setStageFlags( vk::ShaderStageFlagBits::eVertex ).setSize( sizeof( PushConstants ) ).setOffset( 0 );

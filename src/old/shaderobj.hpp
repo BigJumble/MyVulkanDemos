@@ -8,22 +8,7 @@
 namespace core
 {
 
-  // Shader stage types for compilation
-  enum class ShaderStage
-  {
-    Vertex,
-    Fragment,
-    Compute,
-    Geometry,
-    TessellationControl,
-    TessellationEvaluation,
-    RayGen,
-    AnyHit,
-    ClosestHit,
-    Miss,
-    Intersection,
-    Callable
-  };
+
 
   // Result of shader compilation using shaderc, return SPIR-V code or error messages
   struct ShaderCompileResult
@@ -151,9 +136,5 @@ namespace core
    */
   void destroyShaderObject( VkDevice device, VkShaderEXT shaderEXT );
 
-  /**
-   * @brief Helper to convert ShaderStage to VkShaderStageFlagBits
-   */
-  [[nodiscard]] VkShaderStageFlagBits shaderStageToVkShaderStage( ShaderStage stage );
 
 }  // namespace core

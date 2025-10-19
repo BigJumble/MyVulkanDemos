@@ -10,26 +10,49 @@
 namespace core
 {
 
-  // Convert ShaderStage enum to shaderc shader kind
-  static shaderc_shader_kind shaderStageToShadercKind( ShaderStage stage )
+  static std::vector<uint32_t> obtainShaderSpirV(const std::string& shaderName)
   {
-    switch ( stage )
-    {
-      case ShaderStage::Vertex: return shaderc_vertex_shader;
-      case ShaderStage::Fragment: return shaderc_fragment_shader;
-      case ShaderStage::Compute: return shaderc_compute_shader;
-      case ShaderStage::Geometry: return shaderc_geometry_shader;
-      case ShaderStage::TessellationControl: return shaderc_tess_control_shader;
-      case ShaderStage::TessellationEvaluation: return shaderc_tess_evaluation_shader;
-      case ShaderStage::RayGen: return shaderc_raygen_shader;
-      case ShaderStage::AnyHit: return shaderc_anyhit_shader;
-      case ShaderStage::ClosestHit: return shaderc_closesthit_shader;
-      case ShaderStage::Miss: return shaderc_miss_shader;
-      case ShaderStage::Intersection: return shaderc_intersection_shader;
-      case ShaderStage::Callable: return shaderc_callable_shader;
-      default: throw std::runtime_error( "Unknown shader stage" );
+    // Look for compiled SPIR-V in "/compiled/[shaderName].spv"
+    std::string spvPath = "./compiled/" + shaderName + ".spv";
+    std::ifstream spvFile(spvPath, std::ios::binary | std::ios::ate);
+    if (spvFile.is_open()) {
+      std::streamsize size = spvFile.tellg();
+      spvFile.seekg(0, std::ios::beg);
+      if (size % 4 != 0 || size <= 0) {
+        // Invalid SPIR-V file size, treat as missing and fall through to compilation
+      } else {
+        std::vector<uint32_t> spirv(static_cast<size_t>(size) / 4);
+        if (spvFile.read(reinterpret_cast<char*>(spirv.data()), size)) {
+          return spirv;
+        }
+        // If file couldn't be properly read, fall through to compilation
+      }
+      // If file open but error, fall through
     }
+
+    // Compiled file didn't exist or failed to read, so fall back to source in "/shaders/[shaderName]"
+    std::string srcPath = "./shaders/" + shaderName;
+    std::ifstream srcFile(srcPath);
+    if (!srcFile.is_open()) {
+      throw std::runtime_error("Failed to open shader source file: " + srcPath);
+    }
+    std::stringstream buffer;
+    buffer << srcFile.rdbuf();
+    std::string source = buffer.str();
+
+    // For this utility function, make some assumptions: 
+    //   * Use default compile options & unknown stage
+    //   * You may want to customize
+    ShaderCompileOptions defaultOptions;
+    ShaderCompileResult compileResult = compileShaderFromSource(source, ShaderStage::Unknown, defaultOptions, shaderName);
+
+    if (!compileResult.success) {
+      throw std::runtime_error("Shader compilation failed for '" + shaderName + "': " + compileResult.errorMessage);
+    }
+
+    return compileResult.spirv;
   }
+
 
   ShaderCompileResult compileShaderFromSource(
     const std::string &          source,
@@ -136,104 +159,7 @@ namespace core
     return compileShaderFromSource( source, stage, options, filePath );
   }
 
-  // Helper function to convert ShaderStage to VkShaderStageFlagBits
-  VkShaderStageFlagBits shaderStageToVkShaderStage( ShaderStage stage )
-  {
-    switch ( stage )
-    {
-      case ShaderStage::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
-      case ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
-      case ShaderStage::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
-      case ShaderStage::Geometry: return VK_SHADER_STAGE_GEOMETRY_BIT;
-      case ShaderStage::TessellationControl: return VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-      case ShaderStage::TessellationEvaluation: return VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-      case ShaderStage::RayGen: return VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-      case ShaderStage::AnyHit: return VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
-      case ShaderStage::ClosestHit: return VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-      case ShaderStage::Miss: return VK_SHADER_STAGE_MISS_BIT_KHR;
-      case ShaderStage::Intersection: return VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
-      case ShaderStage::Callable: return VK_SHADER_STAGE_CALLABLE_BIT_KHR;
-      default: throw std::runtime_error( "Unknown shader stage" );
-    }
-  }
 
-  // Helper function to convert SpvReflectFormat to vk::Format
-  static vk::Format convertReflectFormat( SpvReflectFormat format )
-  {
-    switch ( format )
-    {
-      case SPV_REFLECT_FORMAT_UNDEFINED: return vk::Format::eUndefined;
-      case SPV_REFLECT_FORMAT_R32_UINT: return vk::Format::eR32Uint;
-      case SPV_REFLECT_FORMAT_R32_SINT: return vk::Format::eR32Sint;
-      case SPV_REFLECT_FORMAT_R32_SFLOAT: return vk::Format::eR32Sfloat;
-      case SPV_REFLECT_FORMAT_R32G32_UINT: return vk::Format::eR32G32Uint;
-      case SPV_REFLECT_FORMAT_R32G32_SINT: return vk::Format::eR32G32Sint;
-      case SPV_REFLECT_FORMAT_R32G32_SFLOAT: return vk::Format::eR32G32Sfloat;
-      case SPV_REFLECT_FORMAT_R32G32B32_UINT: return vk::Format::eR32G32B32Uint;
-      case SPV_REFLECT_FORMAT_R32G32B32_SINT: return vk::Format::eR32G32B32Sint;
-      case SPV_REFLECT_FORMAT_R32G32B32_SFLOAT: return vk::Format::eR32G32B32Sfloat;
-      case SPV_REFLECT_FORMAT_R32G32B32A32_UINT: return vk::Format::eR32G32B32A32Uint;
-      case SPV_REFLECT_FORMAT_R32G32B32A32_SINT: return vk::Format::eR32G32B32A32Sint;
-      case SPV_REFLECT_FORMAT_R32G32B32A32_SFLOAT: return vk::Format::eR32G32B32A32Sfloat;
-      case SPV_REFLECT_FORMAT_R64_UINT: return vk::Format::eR64Uint;
-      case SPV_REFLECT_FORMAT_R64_SINT: return vk::Format::eR64Sint;
-      case SPV_REFLECT_FORMAT_R64_SFLOAT: return vk::Format::eR64Sfloat;
-      case SPV_REFLECT_FORMAT_R64G64_UINT: return vk::Format::eR64G64Uint;
-      case SPV_REFLECT_FORMAT_R64G64_SINT: return vk::Format::eR64G64Sint;
-      case SPV_REFLECT_FORMAT_R64G64_SFLOAT: return vk::Format::eR64G64Sfloat;
-      case SPV_REFLECT_FORMAT_R64G64B64_UINT: return vk::Format::eR64G64B64Uint;
-      case SPV_REFLECT_FORMAT_R64G64B64_SINT: return vk::Format::eR64G64B64Sint;
-      case SPV_REFLECT_FORMAT_R64G64B64_SFLOAT: return vk::Format::eR64G64B64Sfloat;
-      case SPV_REFLECT_FORMAT_R64G64B64A64_UINT: return vk::Format::eR64G64B64A64Uint;
-      case SPV_REFLECT_FORMAT_R64G64B64A64_SINT: return vk::Format::eR64G64B64A64Sint;
-      case SPV_REFLECT_FORMAT_R64G64B64A64_SFLOAT: return vk::Format::eR64G64B64A64Sfloat;
-      default: return vk::Format::eUndefined;
-    }
-  }
-
-  // Helper function to convert SpvReflectShaderStageFlagBits to vk::ShaderStageFlagBits
-  static vk::ShaderStageFlagBits convertReflectShaderStage( SpvReflectShaderStageFlagBits stage )
-  {
-    switch ( stage )
-    {
-      case SPV_REFLECT_SHADER_STAGE_VERTEX_BIT: return vk::ShaderStageFlagBits::eVertex;
-      case SPV_REFLECT_SHADER_STAGE_TESSELLATION_CONTROL_BIT: return vk::ShaderStageFlagBits::eTessellationControl;
-      case SPV_REFLECT_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: return vk::ShaderStageFlagBits::eTessellationEvaluation;
-      case SPV_REFLECT_SHADER_STAGE_GEOMETRY_BIT: return vk::ShaderStageFlagBits::eGeometry;
-      case SPV_REFLECT_SHADER_STAGE_FRAGMENT_BIT: return vk::ShaderStageFlagBits::eFragment;
-      case SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT: return vk::ShaderStageFlagBits::eCompute;
-      case SPV_REFLECT_SHADER_STAGE_RAYGEN_BIT_KHR: return vk::ShaderStageFlagBits::eRaygenKHR;
-      case SPV_REFLECT_SHADER_STAGE_ANY_HIT_BIT_KHR: return vk::ShaderStageFlagBits::eAnyHitKHR;
-      case SPV_REFLECT_SHADER_STAGE_CLOSEST_HIT_BIT_KHR: return vk::ShaderStageFlagBits::eClosestHitKHR;
-      case SPV_REFLECT_SHADER_STAGE_MISS_BIT_KHR: return vk::ShaderStageFlagBits::eMissKHR;
-      case SPV_REFLECT_SHADER_STAGE_INTERSECTION_BIT_KHR: return vk::ShaderStageFlagBits::eIntersectionKHR;
-      case SPV_REFLECT_SHADER_STAGE_CALLABLE_BIT_KHR: return vk::ShaderStageFlagBits::eCallableKHR;
-      case SPV_REFLECT_SHADER_STAGE_TASK_BIT_EXT: return vk::ShaderStageFlagBits::eTaskEXT;
-      case SPV_REFLECT_SHADER_STAGE_MESH_BIT_EXT: return vk::ShaderStageFlagBits::eMeshEXT;
-      default: return vk::ShaderStageFlagBits::eAll;
-    }
-  }
-
-  // Helper function to convert SpvReflectDescriptorType to vk::DescriptorType
-  static vk::DescriptorType convertReflectDescriptorType( SpvReflectDescriptorType type )
-  {
-    switch ( type )
-    {
-      case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER: return vk::DescriptorType::eSampler;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: return vk::DescriptorType::eCombinedImageSampler;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE: return vk::DescriptorType::eSampledImage;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE: return vk::DescriptorType::eStorageImage;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER: return vk::DescriptorType::eUniformTexelBuffer;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER: return vk::DescriptorType::eStorageTexelBuffer;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER: return vk::DescriptorType::eUniformBuffer;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER: return vk::DescriptorType::eStorageBuffer;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: return vk::DescriptorType::eUniformBufferDynamic;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: return vk::DescriptorType::eStorageBufferDynamic;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT: return vk::DescriptorType::eInputAttachment;
-      case SPV_REFLECT_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR: return vk::DescriptorType::eAccelerationStructureKHR;
-      default: throw std::runtime_error( "Unknown descriptor type" );
-    }
-  }
 
   // Reflect SPIR-V and extract descriptor sets, push constants, etc.
   static ShaderReflectionData reflectSpirv( const std::vector<uint32_t> & spirv )
