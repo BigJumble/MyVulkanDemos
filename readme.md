@@ -75,7 +75,8 @@ clang-format qtbase5-dev qt6-base-dev
 - [x] Implement JSON parser for saved state
 - [x] Implement Lua for realtime code
 - [ ] Make each subproject select its instance and device extentions
-- [ ] Port Shaderc shader compilation flags to settings.hpp
+- [x] Port Shaderc shader compilation flags
+- [ ] Build abstraction for resource creation with VMA and SPIR-V Reflect
 - [ ] EPIC: create a shadertoy mini engine, that handles shader creation, resource assignment and light scripting with lua
 - [ ] Use EnTT for model/entity management
 - [ ] Implement compute-based Game of Life demo
@@ -84,3 +85,5 @@ clang-format qtbase5-dev qt6-base-dev
 - [ ] Implement Verlet integration sphere physics on compute
 - [ ] Render sphere terrain using distance fields or marching cubes
 - [ ] Add OpenXR demo
+
+A modern C++ Vulkan playground featuring modular demos: triangle rasterization, compute shaders, ray tracing, and hot-reloading shader compilation. Built with Vulkan 1.3/1.4, SPIRV-Reflect, shaderc, ImGui integration, live Lua scripting, and extensible project structure for rapid graphics prototyping and engine development.

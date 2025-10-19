@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20)
 
-set(TARGET_NAME tri-vbuf)
+set(TARGET_NAME tri-vbuf-vma)
 
 # Set output directory for this specific subproject
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/${TARGET_NAME})

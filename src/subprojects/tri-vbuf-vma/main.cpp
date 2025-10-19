@@ -1,6 +1,10 @@
 #include "bootstrap.hpp"
 #include "helper.hpp"
 #include "settings.hpp"
+#include <vulkan/vulkan_core.h>
+
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
 
 #include <glm/glm.hpp>
 #include <print>
@@ -26,7 +30,7 @@ static void recordCommandBuffer(
   core::SwapchainBundle &    swapchainBundle,
   uint32_t                   imageIndex,
   vk::raii::PipelineLayout & pipelineLayout,
-  vk::raii::Buffer &         vertexBuffer )
+  VkBuffer                   vertexBuffer )
 {
   cmd.reset();
   cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -91,7 +95,7 @@ static void recordCommandBuffer(
 
   // Bind vertex buffer
   vk::DeviceSize offset = 0;
-  cmd.bindVertexBuffers( 0, { *vertexBuffer }, { offset } );
+  cmd.bindVertexBuffers( 0, { vertexBuffer }, { offset } );
 
   cmd.setRasterizerDiscardEnable( VK_FALSE );
   cmd.setCullMode( vk::CullModeFlagBits::eNone );
@@ -196,6 +200,16 @@ int main()
 
     core::SwapchainBundle swapchainBundle = core::createSwapchain( physicalDevice, deviceBundle.device, displayBundle.surface, displayBundle.extent, queueFamilyIndices );
 
+    // Create VMA allocator
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_4;
+    allocatorInfo.physicalDevice = *physicalDevice;
+    allocatorInfo.device = *deviceBundle.device;
+    allocatorInfo.instance = *instance;
+    
+    VmaAllocator allocator;
+    vmaCreateAllocator(&allocatorInfo, &allocator);
+
     std::vector<uint32_t> vertShaderCode = core::help::getShaderCode( "triangle.vert" );
     std::vector<uint32_t> fragShaderCode = core::help::getShaderCode( "triangle.frag" );
 
@@ -231,58 +245,31 @@ int main()
 
     vk::raii::ShaderEXT fragShaderObject{ deviceBundle.device, fragInfo };
 
-    // Create vertex buffer
+    // Create vertex buffer using VMA
     std::array<Vertex, 3> vertices = { Vertex{ glm::vec2( 0.0f, -0.5f ), glm::vec3( 0.0f, 1.0f, 1.0f ) },
                                        Vertex{ glm::vec2( 0.5f, 0.5f ), glm::vec3( 0.0f, 0.0f, 0.0f ) },
                                        Vertex{ glm::vec2( -0.5f, 0.5f ), glm::vec3( 0.0f, 0.0f, 0.0f ) } };
 
-    vk::DeviceSize bufferSize = sizeof( vertices );
+    VkDeviceSize bufferSize = sizeof( vertices );
 
-    vk::BufferCreateInfo bufferInfo{};
-    bufferInfo.setSize( bufferSize ).setUsage( vk::BufferUsageFlagBits::eVertexBuffer ).setSharingMode( vk::SharingMode::eExclusive );
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = bufferSize;
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    vk::raii::Buffer vertexBuffer{ deviceBundle.device, bufferInfo };
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-    // Get memory requirements and find suitable memory type
-    vk::MemoryRequirements memRequirements = vertexBuffer.getMemoryRequirements();
+    VkBuffer vertexBuffer;
+    VmaAllocation vertexBufferAllocation;
+    VmaAllocationInfo vertexBufferAllocInfo;
 
-    vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
-    for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++) {
-      const auto& type = memProperties.memoryTypes[i];
-      std::println( "Type {}: heap {} flags: {}", i, type.heapIndex, vk::to_string(type.propertyFlags) );
-    }
-    for (uint32_t i = 0; i < memProperties.memoryHeapCount; i++) {
-      const auto& heap = memProperties.memoryHeaps[i];
-      std::println("Heap {}: size = {} MB, flags = {}", i, heap.size / (1024 * 1024), vk::to_string(heap.flags));
-    }
+    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &vertexBuffer, &vertexBufferAllocation, &vertexBufferAllocInfo);
 
-    auto findMemoryType = []( uint32_t typeFilter, vk::MemoryPropertyFlags properties, const vk::PhysicalDeviceMemoryProperties & memProps ) -> uint32_t
-    {
-      for ( uint32_t i = 0; i < memProps.memoryTypeCount; i++ )
-      {
-        if ( ( typeFilter & ( 1 << i ) ) && ( memProps.memoryTypes[i].propertyFlags & properties ) == properties )
-        {
-          return i;
-        }
-      }
-      throw std::runtime_error( "failed to find suitable memory type!" );
-    };
-
-    uint32_t memoryTypeIndex =
-      findMemoryType( memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, memProperties );
-
-    vk::MemoryAllocateInfo allocInfo{};
-    allocInfo.setAllocationSize( memRequirements.size ).setMemoryTypeIndex( memoryTypeIndex );
-
-    vk::raii::DeviceMemory vertexBufferMemory{ deviceBundle.device, allocInfo };
-
-    // Bind buffer memory
-    vertexBuffer.bindMemory( *vertexBufferMemory, 0 );
-
-    // Copy vertex data to buffer
-    void * data = vertexBufferMemory.mapMemory( 0, bufferSize );
-    memcpy( data, vertices.data(), static_cast<size_t>( bufferSize ) );
-    vertexBufferMemory.unmapMemory();
+    // Copy vertex data to buffer (already mapped)
+    memcpy( vertexBufferAllocInfo.pMappedData, vertices.data(), static_cast<size_t>( bufferSize ) );
 
     vk::CommandPoolCreateInfo cmdPoolInfo{ vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamilyIndices.graphicsFamily.value() };
     vk::raii::CommandPool     commandPool{ deviceBundle.device, cmdPoolInfo };
@@ -407,6 +394,10 @@ int main()
     }
 
     deviceBundle.device.waitIdle();
+    
+    // Cleanup VMA resources
+    vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAllocation);
+    vmaDestroyAllocator(allocator);
   }
 
   catch ( vk::SystemError & err )
