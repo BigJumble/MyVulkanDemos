@@ -1,27 +1,26 @@
 #pragma once
 // #include <vulkan/vulkan_core.h>
 // #define VULKAN_HPP_DISPATCH_LOADER_DYNAMIC 1
-#include <vulkan/vulkan_core.h>
+// #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_raii.hpp>
-#include <vulkan/vulkan_handles.hpp>
-#include <vulkan/vulkan_structs.hpp>
+// #include <vulkan/vulkan_handles.hpp>
+// #include <vulkan/vulkan_structs.hpp>
 
 #define GLFW_INCLUDE_NONE
 
-
 #include <GLFW/glfw3.h>
-#include <chrono>
+// #include <chrono>
 #include <entt/entt.hpp>
+// #include <fstream>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <iostream>
-#include <print>
-#include <string>
-#include <thread>
-#include <vector>
-#include <fstream>
 
+// #include <iostream>
+// #include <print>
+// #include <string>
+// #include <thread>
+#include <vector>
 
 #if defined( DEBUG ) || !defined( NDEBUG )
 #  define isDebug( code ) code

@@ -1,5 +1,7 @@
 #include "bootstrap.hpp"
-#include "glm/fwd.hpp"
+#include "settings.hpp"
+
+#include <print>
 
 constexpr std::string_view AppName    = "MyApp";
 constexpr std::string_view EngineName = "MyEngine";
@@ -10,7 +12,12 @@ struct PushConstants
 };
 
 static void recordCommandBuffer(
-  vk::raii::CommandBuffer & cmd, vk::raii::ShaderEXT & vertShaderObject, vk::raii::ShaderEXT & fragShaderObject, core::SwapchainBundle & swapchainBundle, uint32_t imageIndex, vk::raii::PipelineLayout & pipelineLayout )
+  vk::raii::CommandBuffer &  cmd,
+  vk::raii::ShaderEXT &      vertShaderObject,
+  vk::raii::ShaderEXT &      fragShaderObject,
+  core::SwapchainBundle &    swapchainBundle,
+  uint32_t                   imageIndex,
+  vk::raii::PipelineLayout & pipelineLayout )
 {
   cmd.reset();
   cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -85,15 +92,9 @@ static void recordCommandBuffer(
   cmd.setColorWriteMaskEXT( 0, colorWriteMask );
 
   // Set push constants using sin/cos of the current time
-  float t = static_cast<float>(glfwGetTime());
+  float t = static_cast<float>( glfwGetTime() );
 
- 
-  cmd.pushConstants<PushConstants>(
-    *pipelineLayout,
-    vk::ShaderStageFlagBits::eVertex,
-    0,
-    { PushConstants{ glm::vec2(std::sin(t), std::cos(t)) } }
-  );
+  cmd.pushConstants<PushConstants>( *pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, { PushConstants{ glm::vec2( std::sin( t ), std::cos( t ) ) } } );
 
   cmd.draw( 3, 1, 0, 0 );
 
@@ -121,7 +122,6 @@ static void framebufferResizeCallback( GLFWwindow * win, int, int )
     *resized = true;
   }
 }
-
 
 static void recreateSwapchain(
   core::DisplayBundle &      displayBundle,
@@ -180,10 +180,9 @@ int main()
     pushConstantRange.setStageFlags( vk::ShaderStageFlagBits::eVertex ).setSize( sizeof( PushConstants ) ).setOffset( 0 );
 
     vk::PipelineLayoutCreateInfo layoutInfo{};
-    layoutInfo.setPushConstantRangeCount(1)
-        .setPPushConstantRanges(&pushConstantRange);
-    
-    vk::raii::PipelineLayout pipelineLayout{deviceBundle.device, layoutInfo};
+    layoutInfo.setPushConstantRangeCount( 1 ).setPPushConstantRanges( &pushConstantRange );
+
+    vk::raii::PipelineLayout pipelineLayout{ deviceBundle.device, layoutInfo };
 
     vk::ShaderCreateInfoEXT vertInfo{};
     vertInfo.setStage( vk::ShaderStageFlagBits::eVertex )
@@ -192,8 +191,8 @@ int main()
       .setPCode( vertShaderCode.data() )
       .setPName( "main" )
       .setCodeSize( vertShaderCode.size() * sizeof( uint32_t ) );
-      // .setPushConstantRangeCount( 1 )
-      // .setPPushConstantRanges( &pushConstantRange );
+    // .setPushConstantRangeCount( 1 )
+    // .setPPushConstantRanges( &pushConstantRange );
 
     vk::raii::ShaderEXT vertShaderObject{ deviceBundle.device, vertInfo };
 
@@ -219,16 +218,17 @@ int main()
     // Create per-frame binary semaphores for image acquisition and presentation
     std::vector<vk::raii::Semaphore> imageAvailableSemaphores;
     std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
-    std::vector<vk::raii::Fence> presentFences;
+    std::vector<vk::raii::Fence>     presentFences;
 
-    imageAvailableSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
-    presentFences.reserve(MAX_FRAMES_IN_FLIGHT);
+    imageAvailableSemaphores.reserve( MAX_FRAMES_IN_FLIGHT );
+    renderFinishedSemaphores.reserve( MAX_FRAMES_IN_FLIGHT );
+    presentFences.reserve( MAX_FRAMES_IN_FLIGHT );
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-      imageAvailableSemaphores.emplace_back(deviceBundle.device, vk::SemaphoreCreateInfo{});
-      renderFinishedSemaphores.emplace_back(deviceBundle.device, vk::SemaphoreCreateInfo{});
-      presentFences.emplace_back(deviceBundle.device, vk::FenceCreateInfo{vk::FenceCreateFlagBits::eSignaled});
+    for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i )
+    {
+      imageAvailableSemaphores.emplace_back( deviceBundle.device, vk::SemaphoreCreateInfo{} );
+      renderFinishedSemaphores.emplace_back( deviceBundle.device, vk::SemaphoreCreateInfo{} );
+      presentFences.emplace_back( deviceBundle.device, vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled } );
     }
 
     bool framebufferResized = false;
@@ -253,7 +253,6 @@ int main()
 
       try
       {
-
         // Get synchronization objects for current frame in flight
         auto & imageAvailable = imageAvailableSemaphores[currentFrame];
         auto & renderFinished = renderFinishedSemaphores[currentFrame];
@@ -301,7 +300,6 @@ int main()
 
         deviceBundle.graphicsQueue.submit2( submitInfo );
 
-
         vk::SwapchainPresentFenceInfoEXT presentFenceInfo{};
         presentFenceInfo.setSwapchainCount( 1 ).setPFences( &*presentFence );
 
@@ -317,7 +315,7 @@ int main()
 
         if ( presentRes == vk::Result::eSuboptimalKHR || presentRes == vk::Result::eErrorOutOfDateKHR )
         {
-            throw presentRes;
+          throw presentRes;
         }
 
         currentFrame = ( currentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;

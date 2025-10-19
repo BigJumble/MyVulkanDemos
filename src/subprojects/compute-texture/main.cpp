@@ -1,4 +1,7 @@
 #include "bootstrap.hpp"
+#include "settings.hpp"
+
+#include <print>
 
 constexpr std::string_view AppName    = "ComputeTextureApp";
 constexpr std::string_view EngineName = "MyEngine";
@@ -22,11 +25,11 @@ uint32_t findMemoryType( vk::PhysicalDevice physicalDevice, uint32_t typeFilter,
 // Structure to hold texture resources
 struct TextureResource
 {
-  vk::raii::Image       image       = nullptr;
-  vk::raii::DeviceMemory memory      = nullptr;
-  vk::raii::ImageView   imageView   = nullptr;
-  vk::raii::Sampler     sampler     = nullptr;
-  vk::Extent2D          extent;
+  vk::raii::Image        image     = nullptr;
+  vk::raii::DeviceMemory memory    = nullptr;
+  vk::raii::ImageView    imageView = nullptr;
+  vk::raii::Sampler      sampler   = nullptr;
+  vk::Extent2D           extent;
 };
 
 // Create a texture image for compute shader output
@@ -54,8 +57,8 @@ TextureResource createComputeTexture( const vk::raii::Device & device, vk::raii:
   vk::MemoryRequirements memRequirements = tex.image.getMemoryRequirements();
 
   vk::MemoryAllocateInfo allocInfo{};
-  allocInfo.setAllocationSize( memRequirements.size ).setMemoryTypeIndex(
-    findMemoryType( *physicalDevice, memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal ) );
+  allocInfo.setAllocationSize( memRequirements.size )
+    .setMemoryTypeIndex( findMemoryType( *physicalDevice, memRequirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal ) );
 
   tex.memory = vk::raii::DeviceMemory{ device, allocInfo };
   tex.image.bindMemory( *tex.memory, 0 );
@@ -92,13 +95,14 @@ TextureResource createComputeTexture( const vk::raii::Device & device, vk::raii:
   return tex;
 }
 
-static void recordComputeCommandBuffer( vk::raii::CommandBuffer & cmd, vk::raii::ShaderEXT & computeShader, vk::raii::PipelineLayout & computePipelineLayout, vk::DescriptorSet descriptorSet, vk::Extent2D extent )
+static void recordComputeCommandBuffer(
+  vk::raii::CommandBuffer & cmd, vk::raii::ShaderEXT & computeShader, vk::raii::PipelineLayout & computePipelineLayout, vk::DescriptorSet descriptorSet, vk::Extent2D extent )
 {
   cmd.reset();
   cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
 
   // Bind compute shader
-  std::array<vk::ShaderStageFlagBits, 1> computeStage = { vk::ShaderStageFlagBits::eCompute };
+  std::array<vk::ShaderStageFlagBits, 1> computeStage       = { vk::ShaderStageFlagBits::eCompute };
   std::array<vk::ShaderEXT, 1>           computeShaderArray = { *computeShader };
   cmd.bindShadersEXT( computeStage, computeShaderArray );
 
@@ -114,13 +118,14 @@ static void recordComputeCommandBuffer( vk::raii::CommandBuffer & cmd, vk::raii:
   cmd.end();
 }
 
-static void recordGraphicsCommandBuffer( vk::raii::CommandBuffer & cmd,
-                                          vk::raii::ShaderEXT &     vertShaderObject,
-                                          vk::raii::ShaderEXT &     fragShaderObject,
-                                          vk::raii::PipelineLayout & graphicsPipelineLayout,
-                                          core::SwapchainBundle &   swapchainBundle,
-                                          uint32_t                  imageIndex,
-                                          vk::DescriptorSet         graphicsDescriptorSet )
+static void recordGraphicsCommandBuffer(
+  vk::raii::CommandBuffer &  cmd,
+  vk::raii::ShaderEXT &      vertShaderObject,
+  vk::raii::ShaderEXT &      fragShaderObject,
+  vk::raii::PipelineLayout & graphicsPipelineLayout,
+  core::SwapchainBundle &    swapchainBundle,
+  uint32_t                   imageIndex,
+  vk::DescriptorSet          graphicsDescriptorSet )
 {
   cmd.reset();
   cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -224,7 +229,6 @@ static void framebufferResizeCallback( GLFWwindow * win, int, int )
   }
 }
 
-
 static void recreateSwapchain(
   core::DisplayBundle &      displayBundle,
   vk::raii::PhysicalDevice & physicalDevice,
@@ -283,10 +287,7 @@ int main()
     // Create descriptor set layouts
     // Compute shader: binding 0 = storage image (write)
     vk::DescriptorSetLayoutBinding computeBinding{};
-    computeBinding.setBinding( 0 )
-      .setDescriptorType( vk::DescriptorType::eStorageImage )
-      .setDescriptorCount( 1 )
-      .setStageFlags( vk::ShaderStageFlagBits::eCompute );
+    computeBinding.setBinding( 0 ).setDescriptorType( vk::DescriptorType::eStorageImage ).setDescriptorCount( 1 ).setStageFlags( vk::ShaderStageFlagBits::eCompute );
 
     vk::DescriptorSetLayoutCreateInfo computeLayoutInfo{};
     computeLayoutInfo.setBindingCount( 1 ).setPBindings( &computeBinding );
@@ -295,10 +296,7 @@ int main()
 
     // Graphics shader: binding 0 = combined image sampler (read)
     vk::DescriptorSetLayoutBinding graphicsBinding{};
-    graphicsBinding.setBinding( 0 )
-      .setDescriptorType( vk::DescriptorType::eCombinedImageSampler )
-      .setDescriptorCount( 1 )
-      .setStageFlags( vk::ShaderStageFlagBits::eFragment );
+    graphicsBinding.setBinding( 0 ).setDescriptorType( vk::DescriptorType::eCombinedImageSampler ).setDescriptorCount( 1 ).setStageFlags( vk::ShaderStageFlagBits::eFragment );
 
     vk::DescriptorSetLayoutCreateInfo graphicsLayoutInfo{};
     graphicsLayoutInfo.setBindingCount( 1 ).setPBindings( &graphicsBinding );
@@ -318,13 +316,10 @@ int main()
 
     // Create descriptor pool
     std::array<vk::DescriptorPoolSize, 2> poolSizes = { vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1 },
-                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1 } };
+                                                        vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1 } };
 
     vk::DescriptorPoolCreateInfo poolInfo{};
-    poolInfo.setFlags( vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet )
-      .setMaxSets( 2 )
-      .setPoolSizeCount( poolSizes.size() )
-      .setPPoolSizes( poolSizes.data() );
+    poolInfo.setFlags( vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet ).setMaxSets( 2 ).setPoolSizeCount( poolSizes.size() ).setPPoolSizes( poolSizes.data() );
 
     vk::raii::DescriptorPool descriptorPool{ deviceBundle.device, poolInfo };
 

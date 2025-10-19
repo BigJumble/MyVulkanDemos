@@ -1,6 +1,8 @@
 #include "bootstrap.hpp"
+#include "settings.hpp"
 #include "spirv_reflect.h"
-#include <map>
+
+#include <print>
 
 #define VMA_IMPLEMENTATION
 #include "vk_mem_alloc.h"
@@ -11,18 +13,20 @@ constexpr std::string_view EngineName = "MyEngine";
 // Structure to hold texture resources
 struct TextureResource
 {
-  vk::Image       image       = nullptr;
-  VmaAllocation   allocation  = nullptr;
-  vk::raii::ImageView   imageView   = nullptr;
-  vk::raii::Sampler     sampler     = nullptr;
-  vk::Extent2D          extent;
-  
+  vk::Image           image      = nullptr;
+  VmaAllocation       allocation = nullptr;
+  vk::raii::ImageView imageView  = nullptr;
+  vk::raii::Sampler   sampler    = nullptr;
+  vk::Extent2D        extent;
+
   // Destructor to clean up VMA allocation
-  void destroy(VmaAllocator allocator) {
-    if (allocation) {
-      vmaDestroyImage(allocator, image, allocation);
+  void destroy( VmaAllocator allocator )
+  {
+    if ( allocation )
+    {
+      vmaDestroyImage( allocator, image, allocation );
       allocation = nullptr;
-      image = nullptr;
+      image      = nullptr;
     }
   }
 };
@@ -48,13 +52,13 @@ TextureResource createComputeTexture( const vk::raii::Device & device, VmaAlloca
 
   // Use VMA to allocate image with memory
   VmaAllocationCreateInfo allocCreateInfo{};
-  allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-  allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+  allocCreateInfo.usage    = VMA_MEMORY_USAGE_AUTO;
+  allocCreateInfo.flags    = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
   allocCreateInfo.priority = 1.0f;
 
   VkImageCreateInfo vkImageInfo = static_cast<VkImageCreateInfo>( imageInfo );
-  VkImage vkImage;
-  
+  VkImage           vkImage;
+
   VkResult result = vmaCreateImage( allocator, &vkImageInfo, &allocCreateInfo, &vkImage, &tex.allocation, nullptr );
   if ( result != VK_SUCCESS )
   {
@@ -100,30 +104,18 @@ vk::DescriptorType spvReflectToVkDescriptorType( SpvReflectDescriptorType spvTyp
 {
   switch ( spvType )
   {
-    case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER:
-      return vk::DescriptorType::eSampler;
-    case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-      return vk::DescriptorType::eCombinedImageSampler;
-    case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-      return vk::DescriptorType::eSampledImage;
-    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-      return vk::DescriptorType::eStorageImage;
-    case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER:
-      return vk::DescriptorType::eUniformTexelBuffer;
-    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER:
-      return vk::DescriptorType::eStorageTexelBuffer;
-    case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER:
-      return vk::DescriptorType::eUniformBuffer;
-    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER:
-      return vk::DescriptorType::eStorageBuffer;
-    case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC:
-      return vk::DescriptorType::eUniformBufferDynamic;
-    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC:
-      return vk::DescriptorType::eStorageBufferDynamic;
-    case SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
-      return vk::DescriptorType::eInputAttachment;
-    default:
-      throw std::runtime_error( "Unknown SPV_REFLECT descriptor type" );
+    case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLER               : return vk::DescriptorType::eSampler;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER: return vk::DescriptorType::eCombinedImageSampler;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_SAMPLED_IMAGE         : return vk::DescriptorType::eSampledImage;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE         : return vk::DescriptorType::eStorageImage;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER  : return vk::DescriptorType::eUniformTexelBuffer;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER  : return vk::DescriptorType::eStorageTexelBuffer;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER        : return vk::DescriptorType::eUniformBuffer;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER        : return vk::DescriptorType::eStorageBuffer;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC: return vk::DescriptorType::eUniformBufferDynamic;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC: return vk::DescriptorType::eStorageBufferDynamic;
+    case SPV_REFLECT_DESCRIPTOR_TYPE_INPUT_ATTACHMENT      : return vk::DescriptorType::eInputAttachment;
+    default                                                : throw std::runtime_error( "Unknown SPV_REFLECT descriptor type" );
   }
 }
 
@@ -192,10 +184,8 @@ vk::raii::DescriptorSetLayout createDescriptorSetLayoutFromSpirv( const vk::raii
   {
     const SpvReflectDescriptorBinding & reflBinding = *set0->bindings[i];
 
-    isDebug( std::println( "    Binding {}: type={}, count={}", 
-        static_cast<uint32_t>(reflBinding.binding), 
-        static_cast<int>(reflBinding.descriptor_type), 
-        reflBinding.count ) );
+    isDebug(
+      std::println( "    Binding {}: type={}, count={}", static_cast<uint32_t>( reflBinding.binding ), static_cast<int>( reflBinding.descriptor_type ), reflBinding.count ) );
 
     vk::DescriptorSetLayoutBinding binding{};
     binding.setBinding( reflBinding.binding )
@@ -215,13 +205,14 @@ vk::raii::DescriptorSetLayout createDescriptorSetLayoutFromSpirv( const vk::raii
   return vk::raii::DescriptorSetLayout{ device, layoutInfo };
 }
 
-static void recordComputeCommandBuffer( vk::raii::CommandBuffer & cmd, vk::raii::ShaderEXT & computeShader, vk::raii::PipelineLayout & computePipelineLayout, vk::DescriptorSet descriptorSet, vk::Extent2D extent )
+static void recordComputeCommandBuffer(
+  vk::raii::CommandBuffer & cmd, vk::raii::ShaderEXT & computeShader, vk::raii::PipelineLayout & computePipelineLayout, vk::DescriptorSet descriptorSet, vk::Extent2D extent )
 {
   cmd.reset();
   cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
 
   // Bind compute shader
-  std::array<vk::ShaderStageFlagBits, 1> computeStage = { vk::ShaderStageFlagBits::eCompute };
+  std::array<vk::ShaderStageFlagBits, 1> computeStage       = { vk::ShaderStageFlagBits::eCompute };
   std::array<vk::ShaderEXT, 1>           computeShaderArray = { *computeShader };
   cmd.bindShadersEXT( computeStage, computeShaderArray );
 
@@ -237,13 +228,14 @@ static void recordComputeCommandBuffer( vk::raii::CommandBuffer & cmd, vk::raii:
   cmd.end();
 }
 
-static void recordGraphicsCommandBuffer( vk::raii::CommandBuffer & cmd,
-                                          vk::raii::ShaderEXT &     vertShaderObject,
-                                          vk::raii::ShaderEXT &     fragShaderObject,
-                                          vk::raii::PipelineLayout & graphicsPipelineLayout,
-                                          core::SwapchainBundle &   swapchainBundle,
-                                          uint32_t                  imageIndex,
-                                          vk::DescriptorSet         graphicsDescriptorSet )
+static void recordGraphicsCommandBuffer(
+  vk::raii::CommandBuffer &  cmd,
+  vk::raii::ShaderEXT &      vertShaderObject,
+  vk::raii::ShaderEXT &      fragShaderObject,
+  vk::raii::PipelineLayout & graphicsPipelineLayout,
+  core::SwapchainBundle &    swapchainBundle,
+  uint32_t                   imageIndex,
+  vk::DescriptorSet          graphicsDescriptorSet )
 {
   cmd.reset();
   cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -347,7 +339,6 @@ static void framebufferResizeCallback( GLFWwindow * win, int, int )
   }
 }
 
-
 static void recreateSwapchain(
   core::DisplayBundle &      displayBundle,
   vk::raii::PhysicalDevice & physicalDevice,
@@ -398,12 +389,12 @@ int main()
     // Create VMA allocator
     VmaAllocatorCreateInfo allocatorInfo{};
     allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_4;
-    allocatorInfo.physicalDevice = *physicalDevice;
-    allocatorInfo.device = *deviceBundle.device;
-    allocatorInfo.instance = *instance;
-    
+    allocatorInfo.physicalDevice   = *physicalDevice;
+    allocatorInfo.device           = *deviceBundle.device;
+    allocatorInfo.instance         = *instance;
+
     VmaAllocator allocator;
-    VkResult vmaResult = vmaCreateAllocator( &allocatorInfo, &allocator );
+    VkResult     vmaResult = vmaCreateAllocator( &allocatorInfo, &allocator );
     if ( vmaResult != VK_SUCCESS )
     {
       throw std::runtime_error( "Failed to create VMA allocator!" );
@@ -419,18 +410,10 @@ int main()
 
     // Create descriptor set layouts using SPIRV-Reflect
     isDebug( std::println( "Reflecting compute shader descriptors..." ); );
-    vk::raii::DescriptorSetLayout computeDescriptorSetLayout = createDescriptorSetLayoutFromSpirv( 
-      deviceBundle.device, 
-      compShaderCode, 
-      vk::ShaderStageFlagBits::eCompute 
-    );
+    vk::raii::DescriptorSetLayout computeDescriptorSetLayout = createDescriptorSetLayoutFromSpirv( deviceBundle.device, compShaderCode, vk::ShaderStageFlagBits::eCompute );
 
     isDebug( std::println( "Reflecting fragment shader descriptors..." ); );
-    vk::raii::DescriptorSetLayout graphicsDescriptorSetLayout = createDescriptorSetLayoutFromSpirv( 
-      deviceBundle.device, 
-      fragShaderCode, 
-      vk::ShaderStageFlagBits::eFragment 
-    );
+    vk::raii::DescriptorSetLayout graphicsDescriptorSetLayout = createDescriptorSetLayoutFromSpirv( deviceBundle.device, fragShaderCode, vk::ShaderStageFlagBits::eFragment );
 
     // Create pipeline layouts from descriptor set layouts
     vk::PipelineLayoutCreateInfo computePipelineLayoutInfo{};
@@ -445,13 +428,10 @@ int main()
 
     // Create descriptor pool
     std::array<vk::DescriptorPoolSize, 2> poolSizes = { vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1 },
-                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1 } };
+                                                        vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1 } };
 
     vk::DescriptorPoolCreateInfo poolInfo{};
-    poolInfo.setFlags( vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet )
-      .setMaxSets( 2 )
-      .setPoolSizeCount( poolSizes.size() )
-      .setPPoolSizes( poolSizes.data() );
+    poolInfo.setFlags( vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet ).setMaxSets( 2 ).setPoolSizeCount( poolSizes.size() ).setPPoolSizes( poolSizes.data() );
 
     vk::raii::DescriptorPool descriptorPool{ deviceBundle.device, poolInfo };
 
@@ -725,10 +705,10 @@ int main()
     }
 
     deviceBundle.device.waitIdle();
-    
+
     // Clean up VMA resources
-    texture.destroy(allocator);
-    vmaDestroyAllocator(allocator);
+    texture.destroy( allocator );
+    vmaDestroyAllocator( allocator );
   }
 
   catch ( vk::SystemError & err )

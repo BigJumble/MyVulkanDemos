@@ -1,5 +1,11 @@
 #pragma once
-#include "settings.hpp"
+#include <vulkan/vulkan_raii.hpp>
+#include <optional>
+#include <string>
+#include <vector>
+
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
 
 namespace core
 {
@@ -34,9 +40,7 @@ namespace core
 
     bool isComplete() const
     {
-      return graphicsFamily.has_value() &&
-             presentFamily.has_value() &&
-             computeFamily.has_value();
+      return graphicsFamily.has_value() && presentFamily.has_value() && computeFamily.has_value();
     }
   };
 
@@ -44,10 +48,10 @@ namespace core
 
   struct DeviceBundle
   {
-    vk::raii::Device device{ nullptr };
-    vk::raii::Queue  graphicsQueue{ nullptr };
-    vk::raii::Queue  presentQueue{ nullptr };
-    vk::raii::Queue  computeQueue{ nullptr };
+    vk::raii::Device   device{ nullptr };
+    vk::raii::Queue    graphicsQueue{ nullptr };
+    vk::raii::Queue    presentQueue{ nullptr };
+    vk::raii::Queue    computeQueue{ nullptr };
     QueueFamilyIndices indices;
   };
 
@@ -92,4 +96,3 @@ namespace core
   [[nodiscard]] vk::raii::ShaderModule createShaderModule( const vk::raii::Device & device, const std::vector<uint32_t> & spirv );
 
 }  // namespace core
-

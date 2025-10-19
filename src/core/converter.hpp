@@ -1,6 +1,4 @@
 #pragma once
-#include "vulkan/vulkan.hpp"
-
 #include <shaderc/shaderc.hpp>
 #include <spirv_reflect.h>
 #include <vulkan/vulkan_raii.hpp>
@@ -9,13 +7,6 @@ namespace core
 {
   namespace to
   {
-    enum class ApiBackend {
-      Vulkan,   // Vulkan API types
-      SpirV,    // SPIR-V reflection/types
-      Shaderc   // Shaderc/shader compiler
-    };
-
-
 
     // Convert Vulkan shader stage to Shaderc shader kind
     constexpr shaderc_shader_kind shadercKind( vk::ShaderStageFlagBits stage )
@@ -58,10 +49,10 @@ namespace core
         default                            : throw std::invalid_argument( "Unsupported shader kind" );
       }
     }
+
     inline SpvReflectShaderStageFlagBits spvStage( vk::ShaderStageFlagBits stage )
     {
-      return static_cast<SpvReflectShaderStageFlagBits>(stage);
-
+      return static_cast<SpvReflectShaderStageFlagBits>( stage );
     }
 
     // Convert Vulkan shader stage to SPIRV-Reflect shader stage

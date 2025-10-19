@@ -1,13 +1,13 @@
+#include "settings.hpp"
 #include "bootstrap.hpp"
 
 #include <algorithm>
 #include <limits>
 #include <set>
 #include <string>
-#include <vulkan/vulkan_core.h>
-#include <vulkan/vulkan_structs.hpp>
-
-// #include <vulkan/vulkan_core.h>
+#include <fstream>
+#include <iostream>
+#include <print>
 
 namespace core
 {
@@ -226,11 +226,10 @@ namespace core
     vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT     extendedDynamicState3{};
     vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT     swapchainMaintenance1{};
 
-    bool                                                   enablePageable          = false;
-    bool                                                   enableShaderObject      = false;
-    bool                                                   enableExtendedDynState3 = false;
-    bool                                                   enableSwapchainMaintenance1 = false;
-
+    bool enablePageable              = false;
+    bool enableShaderObject          = false;
+    bool enableExtendedDynState3     = false;
+    bool enableSwapchainMaintenance1 = false;
 
     // In your loop:
     for ( auto const & ep : avail )
@@ -423,7 +422,7 @@ namespace core
     createInfo.setImageExtent( extent );
     createInfo.setImageArrayLayers( 1 );
     createInfo.setImageUsage( vk::ImageUsageFlagBits::eColorAttachment );
-    
+
     // Configure sharing mode based on queue family indices
     uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };
     if ( indices.graphicsFamily.value() != indices.presentFamily.value() )
@@ -436,7 +435,7 @@ namespace core
     {
       createInfo.setImageSharingMode( vk::SharingMode::eExclusive );
     }
-    
+
     createInfo.setPreTransform( support.capabilities.currentTransform );
     createInfo.setCompositeAlpha( vk::CompositeAlphaFlagBitsKHR::eOpaque );
     createInfo.setPresentMode( presentMode );

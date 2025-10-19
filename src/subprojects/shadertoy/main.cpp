@@ -1,10 +1,13 @@
 #include "bootstrap.hpp"
-#include "rendering.hpp"
-#include "swapchain_utils.hpp"
-#include "ui.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_vulkan.h"
+#include "rendering.hpp"
+#include "settings.hpp"
+#include "swapchain_utils.hpp"
+#include "ui.hpp"
+
+#include <print>
 
 constexpr std::string_view AppName    = "MyApp";
 constexpr std::string_view EngineName = "MyEngine";
@@ -35,19 +38,17 @@ int main()
     vk::raii::CommandPool     commandPool{ deviceBundle.device, cmdPoolInfo };
 
     // Create ImGui descriptor pool
-    std::array<vk::DescriptorPoolSize, 11> imguiPoolSizes = {
-      vk::DescriptorPoolSize{ vk::DescriptorType::eSampler, 1000 },
-      vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1000 },
-      vk::DescriptorPoolSize{ vk::DescriptorType::eSampledImage, 1000 },
-      vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1000 },
-      vk::DescriptorPoolSize{ vk::DescriptorType::eUniformTexelBuffer, 1000 },
-      vk::DescriptorPoolSize{ vk::DescriptorType::eStorageTexelBuffer, 1000 },
-      vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1000 },
-      vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
-      vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBufferDynamic, 1000 },
-      vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBufferDynamic, 1000 },
-      vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 1000 }
-    };
+    std::array<vk::DescriptorPoolSize, 11> imguiPoolSizes = { vk::DescriptorPoolSize{ vk::DescriptorType::eSampler, 1000 },
+                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1000 },
+                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eSampledImage, 1000 },
+                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1000 },
+                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eUniformTexelBuffer, 1000 },
+                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageTexelBuffer, 1000 },
+                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1000 },
+                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
+                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBufferDynamic, 1000 },
+                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBufferDynamic, 1000 },
+                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 1000 } };
 
     vk::DescriptorPoolCreateInfo imguiPoolInfo{};
     imguiPoolInfo.flags         = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
@@ -91,16 +92,17 @@ int main()
 
     std::vector<vk::raii::Semaphore> imageAvailableSemaphores;
     std::vector<vk::raii::Semaphore> renderFinishedSemaphores;
-    std::vector<vk::raii::Fence> presentFences;
+    std::vector<vk::raii::Fence>     presentFences;
 
-    imageAvailableSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.reserve(MAX_FRAMES_IN_FLIGHT);
-    presentFences.reserve(MAX_FRAMES_IN_FLIGHT);
+    imageAvailableSemaphores.reserve( MAX_FRAMES_IN_FLIGHT );
+    renderFinishedSemaphores.reserve( MAX_FRAMES_IN_FLIGHT );
+    presentFences.reserve( MAX_FRAMES_IN_FLIGHT );
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i) {
-      imageAvailableSemaphores.emplace_back(deviceBundle.device, vk::SemaphoreCreateInfo{});
-      renderFinishedSemaphores.emplace_back(deviceBundle.device, vk::SemaphoreCreateInfo{});
-      presentFences.emplace_back(deviceBundle.device, vk::FenceCreateInfo{vk::FenceCreateFlagBits::eSignaled});
+    for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i )
+    {
+      imageAvailableSemaphores.emplace_back( deviceBundle.device, vk::SemaphoreCreateInfo{} );
+      renderFinishedSemaphores.emplace_back( deviceBundle.device, vk::SemaphoreCreateInfo{} );
+      presentFences.emplace_back( deviceBundle.device, vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled } );
     }
 
     bool framebufferResized = false;
@@ -114,7 +116,7 @@ int main()
 
     // Resource Manager state
     ui::ResourceManagerState resourceManagerState;
-    
+
     // Main Loop state
     ui::MainLoopState mainLoopState;
 
@@ -192,7 +194,6 @@ int main()
 
         deviceBundle.graphicsQueue.submit2( submitInfo );
 
-
         vk::SwapchainPresentFenceInfoEXT presentFenceInfo{};
         presentFenceInfo.setSwapchainCount( 1 ).setPFences( &*presentFence );
 
@@ -208,7 +209,7 @@ int main()
 
         if ( presentRes == vk::Result::eSuboptimalKHR || presentRes == vk::Result::eErrorOutOfDateKHR )
         {
-            throw presentRes;
+          throw presentRes;
         }
 
         currentFrame = ( currentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
