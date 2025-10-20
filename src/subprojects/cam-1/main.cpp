@@ -70,8 +70,6 @@ static void recordCommandBuffer(
   vk::DependencyInfo depInfo{};
   depInfo.setImageMemoryBarrierCount( 1 ).setPImageMemoryBarriers( &barrier );
 
-  cmd.pipelineBarrier2( depInfo );
-
   // Transition depth image to depth attachment optimal layout
   vk::ImageSubresourceRange depthSubresourceRange{};
   depthSubresourceRange.setAspectMask( vk::ImageAspectFlagBits::eDepth ).setLevelCount( 1 ).setLayerCount( 1 );
@@ -88,10 +86,12 @@ static void recordCommandBuffer(
     .setImage( depthResources.image )
     .setSubresourceRange( depthSubresourceRange );
 
-  vk::DependencyInfo depthDepInfo{};
-  depthDepInfo.setImageMemoryBarrierCount( 1 ).setPImageMemoryBarriers( &depthBarrier );
 
-  cmd.pipelineBarrier2( depthDepInfo );
+  vk::DependencyInfo imageBarriers{};
+  std::array<vk::ImageMemoryBarrier2, 2> barriers = { depthBarrier, barrier };
+  imageBarriers.setImageMemoryBarrierCount( 2 ).setPImageMemoryBarriers( barriers.data() );
+
+  cmd.pipelineBarrier2( imageBarriers );
 
   vk::ClearValue clearValue{};
   clearValue.color = vk::ClearColorValue( std::array<float, 4>{ 0.0f, 0.0f, 0.0f, 0.0f } );
