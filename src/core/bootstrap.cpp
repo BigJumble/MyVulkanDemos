@@ -1,25 +1,18 @@
-#include "settings.hpp"
-#include "vulkan/vulkan.hpp"
 #include "bootstrap.hpp"
 
+#include "settings.hpp"
+#include "vulkan/vulkan.hpp"
+
 #include <algorithm>
-#include <limits>
-#include <set>
-#include <string>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <print>
+#include <set>
+#include <string>
 
 namespace core
 {
-
-  vk::raii::Instance createInstance( vk::raii::Context & context, const std::string & appName, const std::string & engineName )
-  {
-    vk::ApplicationInfo applicationInfo( appName.c_str(), 1, engineName.c_str(), 1, VK_API_VERSION_1_4 );
-
-    vk::InstanceCreateInfo instanceCreateInfo( {}, &applicationInfo, {}, core::InstanceExtensions );
-    return vk::raii::Instance( context, instanceCreateInfo );
-  }
 
   vk::raii::PhysicalDevice selectPhysicalDevice( const vk::raii::PhysicalDevices & devices )
   {
@@ -125,7 +118,8 @@ namespace core
     return indices;
   }
 
-  DeviceBundle createDeviceWithQueues( const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices, const void * pNextFeatureChain, const std::vector<const char *> & finalExtensions )
+  DeviceBundle createDeviceWithQueues(
+    const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices, const void * pNextFeatureChain, const std::vector<const char *> & finalExtensions )
   {
     // --- Queues setup ---
     std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value(), indices.computeFamily.value() };
@@ -275,21 +269,23 @@ namespace core
     bundle.imageViews.reserve( bundle.images.size() );
     for ( const vk::Image & image : bundle.images )
     {
-      vk::ImageViewCreateInfo viewInfo{};  // Create an image view create info struct
-      vk::ComponentMapping    components{};
+      vk::ComponentMapping components{};
       components.setR( vk::ComponentSwizzle::eIdentity );  // No swizzle for R
       components.setG( vk::ComponentSwizzle::eIdentity );  // No swizzle for G
       components.setB( vk::ComponentSwizzle::eIdentity );  // No swizzle for B
       components.setA( vk::ComponentSwizzle::eIdentity );  // No swizzle for A
+      
       vk::ImageSubresourceRange subresourceRange{};
       subresourceRange.setAspectMask( vk::ImageAspectFlagBits::eColor );  // View color aspect
       subresourceRange.setBaseMipLevel( 0 );                              // Start at first mip level
       subresourceRange.setLevelCount( 1 );                                // Only one mip level
       subresourceRange.setBaseArrayLayer( 0 );                            // Start at first array layer
       subresourceRange.setLayerCount( 1 );                                // Only one array layer
-      viewInfo.setImage( image );                                         // The image to create a view for
-      viewInfo.setViewType( vk::ImageViewType::e2D );                     // 2D texture view
-      viewInfo.setFormat( bundle.imageFormat );                           // Format matches swapchain image format
+
+      vk::ImageViewCreateInfo viewInfo{};              // Create an image view create info struct
+      viewInfo.setImage( image );                      // The image to create a view for
+      viewInfo.setViewType( vk::ImageViewType::e2D );  // 2D texture view
+      viewInfo.setFormat( bundle.imageFormat );        // Format matches swapchain image format
       viewInfo.setComponents( components );
       viewInfo.setSubresourceRange( subresourceRange );
       bundle.imageViews.emplace_back( device, viewInfo );  // Create and store the image view

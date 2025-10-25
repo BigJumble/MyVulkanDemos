@@ -1,15 +1,16 @@
+
 #include "bootstrap.hpp"
 #include "helper.hpp"
-#include "settings.hpp"
-#include "device.hpp"
-#include <vulkan/vulkan_core.h>
+// #include "features.hpp"
+#include "init.hpp"
+
+#include <vulkan/vulkan_raii.hpp>
 
 #define VMA_IMPLEMENTATION
-#include <vk_mem_alloc.h>
-
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <print>
+#include <vk_mem_alloc.h>
 
 constexpr std::string_view AppName    = "MyApp";
 constexpr std::string_view EngineName = "MyEngine";
@@ -31,24 +32,15 @@ struct InstanceData
   glm::vec3 position;
 };
 
-struct DepthResources
-{
-  VkImage       image;
-  VmaAllocation allocation;
-  vk::raii::ImageView imageView;
-};
-
 static void recordCommandBuffer(
-  vk::raii::CommandBuffer &  cmd,
-  vk::raii::ShaderEXT &      vertShaderObject,
-  vk::raii::ShaderEXT &      fragShaderObject,
-  core::SwapchainBundle &    swapchainBundle,
-  uint32_t                   imageIndex,
-  vk::raii::PipelineLayout & pipelineLayout,
-  VkBuffer                   vertexBuffer,
-  VkBuffer                   instanceBuffer,
-  uint32_t                   instanceCount,
-  DepthResources const &     depthResources )
+  vk::raii::CommandBuffer &          cmd,
+  init::raii::ShaderBundle &         shaderBundle,
+  core::SwapchainBundle &            swapchainBundle,
+  uint32_t                           imageIndex,
+  VkBuffer                           vertexBuffer,
+  VkBuffer                           instanceBuffer,
+  uint32_t                           instanceCount,
+  init::raii::DepthResources const & depthResources )
 {
   cmd.reset();
   cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -87,8 +79,7 @@ static void recordCommandBuffer(
     .setImage( depthResources.image )
     .setSubresourceRange( depthSubresourceRange );
 
-
-  vk::DependencyInfo imageBarriers{};
+  vk::DependencyInfo                     imageBarriers{};
   std::array<vk::ImageMemoryBarrier2, 2> barriers = { depthBarrier, barrier };
   imageBarriers.setImageMemoryBarrierCount( 2 ).setPImageMemoryBarriers( barriers.data() );
 
@@ -108,7 +99,7 @@ static void recordCommandBuffer(
     .setClearValue( clearValue );
 
   vk::RenderingAttachmentInfo depthAttachment{};
-  depthAttachment.setImageView( *depthResources.imageView )
+  depthAttachment.setImageView( depthResources.imageView )
     .setImageLayout( vk::ImageLayout::eDepthAttachmentOptimal )
     .setLoadOp( vk::AttachmentLoadOp::eClear )
     .setStoreOp( vk::AttachmentStoreOp::eDontCare )
@@ -127,7 +118,7 @@ static void recordCommandBuffer(
   cmd.beginRendering( renderingInfo );
 
   std::array<vk::ShaderStageFlagBits, 2> stages  = { vk::ShaderStageFlagBits::eVertex, vk::ShaderStageFlagBits::eFragment };
-  std::array<vk::ShaderEXT, 2>           shaders = { *vertShaderObject, *fragShaderObject };
+  std::array<vk::ShaderEXT, 2>           shaders = { *shaderBundle.getCurrentVertexShader(), *shaderBundle.getCurrentFragmentShader() };
   cmd.bindShadersEXT( stages, shaders );
 
   vk::Viewport viewport{ 0, 0, float( swapchainBundle.extent.width ), float( swapchainBundle.extent.height ), 0.0f, 1.0f };
@@ -155,7 +146,7 @@ static void recordCommandBuffer(
   cmd.bindVertexBuffers( 1, { instanceBuffer }, { offset } );
 
   cmd.setRasterizerDiscardEnable( VK_FALSE );
-  cmd.setCullMode( vk::CullModeFlagBits::eNone ); // when billboarding starts set to eBack
+  cmd.setCullMode( vk::CullModeFlagBits::eNone );  // when billboarding starts set to eBack
   cmd.setFrontFace( vk::FrontFace::eCounterClockwise );
   cmd.setDepthTestEnable( VK_TRUE );
   cmd.setDepthWriteEnable( VK_TRUE );
@@ -172,25 +163,26 @@ static void recordCommandBuffer(
   cmd.setAlphaToCoverageEnableEXT( VK_FALSE );
   cmd.setColorBlendEnableEXT( 0, VK_FALSE );
   cmd.setColorBlendEquationEXT( 0, vk::ColorBlendEquationEXT{} );
-  vk::ColorComponentFlags colorWriteMask = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+  vk::ColorComponentFlags colorWriteMask =
+    vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
   cmd.setColorWriteMaskEXT( 0, colorWriteMask );
 
   // Set push constants with camera view and projection matrices
   float t = static_cast<float>( glfwGetTime() );
-  
+
   // Create a simple rotating camera
-  glm::vec3 cameraPos = glm::vec3( std::sin( t ) * 3.0f, 2.0f, std::cos( t ) * 3.0f );
+  glm::vec3 cameraPos    = glm::vec3( std::sin( t ) * 3.0f, 2.0f, std::cos( t ) * 3.0f );
   glm::vec3 cameraTarget = glm::vec3( 0.0f, 0.0f, 0.0f );
-  glm::vec3 cameraUp = glm::vec3( 0.0f, 1.0f, 0.0f );
-  glm::mat4 view = glm::lookAt( cameraPos, cameraTarget, cameraUp );
-  
+  glm::vec3 cameraUp     = glm::vec3( 0.0f, 1.0f, 0.0f );
+  glm::mat4 view         = glm::lookAt( cameraPos, cameraTarget, cameraUp );
+
   // Create perspective projection
-  float aspect = float( swapchainBundle.extent.width ) / float( swapchainBundle.extent.height );
-  glm::mat4 proj = glm::perspective( glm::radians( 45.0f ), aspect, 0.1f, 10000.0f );
-  proj[1][1] *= -1; // Flip Y for Vulkan
-  
+  float     aspect = float( swapchainBundle.extent.width ) / float( swapchainBundle.extent.height );
+  glm::mat4 proj   = glm::perspective( glm::radians( 45.0f ), aspect, 0.1f, 10000.0f );
+  proj[1][1] *= -1;  // Flip Y for Vulkan
+
   PushConstants pc{ view, proj };
-  cmd.pushConstants<PushConstants>( *pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, { pc } );
+  cmd.pushConstants<PushConstants>( *shaderBundle.pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, { pc } );
 
   cmd.draw( 3, instanceCount, 0, 0 );
 
@@ -219,61 +211,14 @@ static void framebufferResizeCallback( GLFWwindow * win, int, int )
   }
 }
 
-static DepthResources createDepthResources(
-  vk::raii::Device & device,
-  VmaAllocator       allocator,
-  vk::Extent2D       extent )
-{
-  vk::Format depthFormat = vk::Format::eD32Sfloat;
-
-  VkImageCreateInfo imageInfo = {};
-  imageInfo.sType         = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-  imageInfo.imageType     = VK_IMAGE_TYPE_2D;
-  imageInfo.extent.width  = extent.width;
-  imageInfo.extent.height = extent.height;
-  imageInfo.extent.depth  = 1;
-  imageInfo.mipLevels     = 1;
-  imageInfo.arrayLayers   = 1;
-  imageInfo.format        = static_cast<VkFormat>( depthFormat );
-  imageInfo.tiling        = VK_IMAGE_TILING_OPTIMAL;
-  imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-  imageInfo.usage         = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-  imageInfo.samples       = VK_SAMPLE_COUNT_1_BIT;
-  imageInfo.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
-
-  VmaAllocationCreateInfo allocInfo = {};
-  allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-  allocInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-
-  VkImage       depthImage;
-  VmaAllocation depthAllocation;
-
-  vmaCreateImage( allocator, &imageInfo, &allocInfo, &depthImage, &depthAllocation, nullptr );
-
-  vk::ImageViewCreateInfo viewInfo{};
-  viewInfo.setImage( depthImage )
-    .setViewType( vk::ImageViewType::e2D )
-    .setFormat( depthFormat )
-    .setSubresourceRange( vk::ImageSubresourceRange{}
-                            .setAspectMask( vk::ImageAspectFlagBits::eDepth )
-                            .setBaseMipLevel( 0 )
-                            .setLevelCount( 1 )
-                            .setBaseArrayLayer( 0 )
-                            .setLayerCount( 1 ) );
-
-  vk::raii::ImageView imageView{ device, viewInfo };
-
-  return DepthResources{ depthImage, depthAllocation, std::move( imageView ) };
-}
-
 static void recreateSwapchain(
-  core::DisplayBundle &      displayBundle,
-  vk::raii::PhysicalDevice & physicalDevice,
-  core::DeviceBundle &       deviceBundle,
-  core::SwapchainBundle &    swapchainBundle,
-  core::QueueFamilyIndices & queueFamilyIndices,
-  VmaAllocator               allocator,
-  DepthResources &           depthResources )
+  core::DisplayBundle &        displayBundle,
+  vk::raii::PhysicalDevice &   physicalDevice,
+  core::DeviceBundle &         deviceBundle,
+  core::SwapchainBundle &      swapchainBundle,
+  core::QueueFamilyIndices &   queueFamilyIndices,
+  VmaAllocator &               allocator,
+  init::raii::DepthResources & depthResources )
 {
   int width = 0, height = 0;
   do
@@ -283,9 +228,6 @@ static void recreateSwapchain(
   } while ( width == 0 || height == 0 );
 
   deviceBundle.device.waitIdle();
-
-  // Destroy old depth resources
-  vmaDestroyImage( allocator, depthResources.image, depthResources.allocation );
 
   core::SwapchainBundle old = std::move( swapchainBundle );
   swapchainBundle           = core::createSwapchain(
@@ -297,7 +239,7 @@ static void recreateSwapchain(
     &old.swapchain );
 
   // Recreate depth resources with new extent
-  depthResources = createDepthResources( deviceBundle.device, allocator, swapchainBundle.extent );
+  depthResources = init::raii::DepthResources( deviceBundle.device, allocator, swapchainBundle.extent );
 
   // No need to recreate per-frame semaphores - they're independent of swapchain
 }
@@ -305,103 +247,63 @@ static void recreateSwapchain(
 int main()
 {
   /* VULKAN_HPP_KEY_START */
-  isDebug( std::println( "LOADING UP CAMERA INSTANCING EXAMPLE!\n" ); );
+  // isDebug( std::println( "LOADING UP CAMERA INSTANCING EXAMPLE!\n" ); );
   try
   {
     vk::raii::Context context;
 
-    vk::raii::Instance instance = core::createInstance( context, std::string( AppName ), std::string( EngineName ) );
+    vk::raii::Instance instance( context, init::createInfo );
 
     vk::raii::PhysicalDevices physicalDevices( instance );
 
     vk::raii::PhysicalDevice physicalDevice = core::selectPhysicalDevice( physicalDevices );
 
-    core::DisplayBundle displayBundle( instance, "MyEngine", vk::Extent2D( 1280, 720 ) );
+    core::DisplayBundle displayBundle( instance, init::AppName.data(), vk::Extent2D( 1280, 720 ) );
 
     core::QueueFamilyIndices queueFamilyIndices = core::findQueueFamilies( physicalDevice, displayBundle.surface );
 
-    core::DeviceBundle deviceBundle = core::createDeviceWithQueues( physicalDevice, queueFamilyIndices, cfg::EnabledFeatures().makeFeatureChain(), cfg::getRequiredExtensions);
+    core::DeviceBundle deviceBundle = core::createDeviceWithQueues( physicalDevice, queueFamilyIndices, cfg::enabledFeaturesChain, cfg::getRequiredExtensions );
 
-    core::SwapchainBundle swapchainBundle = core::createSwapchain( physicalDevice, deviceBundle.device, displayBundle.surface, displayBundle.extent, queueFamilyIndices );
-    
+    core::SwapchainBundle swapchainBundle =
+      core::createSwapchain( physicalDevice, deviceBundle.device, displayBundle.surface, displayBundle.extent, queueFamilyIndices );
 
-    // Create VMA allocator
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_4;
-    allocatorInfo.physicalDevice = *physicalDevice;
-    allocatorInfo.device = *deviceBundle.device;
-    allocatorInfo.instance = *instance;
-    
-    VmaAllocator allocator;
-    vmaCreateAllocator(&allocatorInfo, &allocator);
+    init::raii::Allocator allocator( instance, physicalDevice, deviceBundle.device );
 
     // Create depth resources
-    DepthResources depthResources = createDepthResources( deviceBundle.device, allocator, swapchainBundle.extent );
+    init::raii::DepthResources depthResources( deviceBundle.device, allocator, swapchainBundle.extent );
 
-    std::vector<uint32_t> vertShaderCode = core::help::getShaderCode( "triangle.vert" );
-    std::vector<uint32_t> fragShaderCode = core::help::getShaderCode( "triangle.frag" );
-
-    vk::PushConstantRange pushConstantRange{};
-    pushConstantRange.setStageFlags( vk::ShaderStageFlagBits::eVertex ).setSize( sizeof( PushConstants ) ).setOffset( 0 );
-
-    vk::PipelineLayoutCreateInfo layoutInfo{};
-    layoutInfo.setPushConstantRangeCount( 1 ).setPPushConstantRanges( &pushConstantRange );
-
-    vk::raii::PipelineLayout pipelineLayout{ deviceBundle.device, layoutInfo };
-
-    vk::ShaderCreateInfoEXT vertInfo{};
-    vertInfo.setStage( vk::ShaderStageFlagBits::eVertex )
-      .setCodeType( vk::ShaderCodeTypeEXT::eSpirv )
-      .setNextStage( vk::ShaderStageFlagBits::eFragment )
-      .setPCode( vertShaderCode.data() )
-      .setPName( "main" )
-      .setCodeSize( vertShaderCode.size() * sizeof( uint32_t ) )
-      .setPushConstantRangeCount( 1 )
-      .setPPushConstantRanges( &pushConstantRange );
-
-    vk::raii::ShaderEXT vertShaderObject{ deviceBundle.device, vertInfo };
-
-    vk::ShaderCreateInfoEXT fragInfo{};
-    fragInfo.setStage( vk::ShaderStageFlagBits::eFragment )
-      .setCodeType( vk::ShaderCodeTypeEXT::eSpirv )
-      .setNextStage( {} )
-      .setPCode( fragShaderCode.data() )
-      .setPName( "main" )
-      .setCodeSize( fragShaderCode.size() * sizeof( uint32_t ) )
-      .setPushConstantRangeCount( 1 )
-      .setPPushConstantRanges( &pushConstantRange );
-
-    vk::raii::ShaderEXT fragShaderObject{ deviceBundle.device, fragInfo };
+    init::raii::ShaderBundle shaderBundle(
+      deviceBundle.device, { "triangle.vert" }, { "triangle.frag" }, vk::PushConstantRange{ vk::ShaderStageFlagBits::eVertex, 0, sizeof( PushConstants ) } );
 
     // Create vertex buffer for an equilateral triangle centered at origin, inscribed in a 1x1 grid (side length = 1).
     // Calculate vertices: center at (0,0), one at bottom (-0.5,-h/3), two at (+/-0.5,+h*2/3)
     // Height of equilateral triangle = sqrt(3)/2 * side
-    const float side = 1.0f;
-    const float height = side * std::sqrt(3.0f) / 2.0f;
+    const float side   = 1.0f;
+    const float height = side * std::sqrt( 3.0f ) / 2.0f;
 
     std::array<Vertex, 3> vertices = {
-        Vertex{ glm::vec2( 0.0f, -height/3.0f ), glm::vec3( 1.0f, 0.5f, 0.5f ) },           // bottom
-        Vertex{ glm::vec2( 0.5f, height*2.0f/3.0f ), glm::vec3( 0.5f, 1.0f, 0.5f ) },        // right
-        Vertex{ glm::vec2( -0.5f, height*2.0f/3.0f ), glm::vec3( 0.5f, 0.5f, 1.0f ) },       // left
+      Vertex{ glm::vec2( 0.0f, -height / 3.0f ), glm::vec3( 1.0f, 0.5f, 0.5f ) },         // bottom
+      Vertex{ glm::vec2( 0.5f, height * 2.0f / 3.0f ), glm::vec3( 0.5f, 1.0f, 0.5f ) },   // right
+      Vertex{ glm::vec2( -0.5f, height * 2.0f / 3.0f ), glm::vec3( 0.5f, 0.5f, 1.0f ) },  // left
     };
 
     VkDeviceSize bufferSize = sizeof( vertices );
 
     VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = bufferSize;
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    bufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size               = bufferSize;
+    bufferInfo.usage              = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
 
     VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocInfo.usage                   = VMA_MEMORY_USAGE_AUTO;
     allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 
-    VkBuffer vertexBuffer;
-    VmaAllocation vertexBufferAllocation;
+    VkBuffer          vertexBuffer;
+    VmaAllocation     vertexBufferAllocation;
     VmaAllocationInfo vertexBufferAllocInfo;
 
-    vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &vertexBuffer, &vertexBufferAllocation, &vertexBufferAllocInfo);
+    vmaCreateBuffer( allocator, &bufferInfo, &allocInfo, &vertexBuffer, &vertexBufferAllocation, &vertexBufferAllocInfo );
 
     // Copy vertex data to buffer (already mapped)
     memcpy( vertexBufferAllocInfo.pMappedData, vertices.data(), static_cast<size_t>( bufferSize ) );
@@ -409,11 +311,11 @@ int main()
     // Create instance buffer with multiple 3D positions
     std::vector<InstanceData> instances;
     // Precompute the number of instances in the 3D grid for efficient reservation
-    constexpr int gridMin = -100;
-    constexpr int gridMax = 100;
-    constexpr int gridCount = gridMax - gridMin + 1;
-    const size_t instanceReserveCount = static_cast<size_t>(gridCount) * gridCount * gridCount;
-    instances.reserve(instanceReserveCount);
+    constexpr int gridMin              = -100;
+    constexpr int gridMax              = 100;
+    constexpr int gridCount            = gridMax - gridMin + 1;
+    const size_t  instanceReserveCount = static_cast<size_t>( gridCount ) * gridCount * gridCount;
+    instances.reserve( instanceReserveCount );
 
     // Create a grid of triangles
     for ( int x = gridMin; x <= gridMax; ++x )
@@ -426,21 +328,21 @@ int main()
         }
       }
     }
-    
-    uint32_t instanceCount = static_cast<uint32_t>( instances.size() );
+
+    uint32_t     instanceCount      = static_cast<uint32_t>( instances.size() );
     VkDeviceSize instanceBufferSize = sizeof( InstanceData ) * instances.size();
 
     VkBufferCreateInfo instanceBufferInfo = {};
-    instanceBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    instanceBufferInfo.size = instanceBufferSize;
-    instanceBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    instanceBufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    instanceBufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    instanceBufferInfo.size               = instanceBufferSize;
+    instanceBufferInfo.usage              = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    instanceBufferInfo.sharingMode        = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkBuffer instanceBuffer;
-    VmaAllocation instanceBufferAllocation;
+    VkBuffer          instanceBuffer;
+    VmaAllocation     instanceBufferAllocation;
     VmaAllocationInfo instanceBufferAllocInfo;
 
-    vmaCreateBuffer(allocator, &instanceBufferInfo, &allocInfo, &instanceBuffer, &instanceBufferAllocation, &instanceBufferAllocInfo);
+    vmaCreateBuffer( allocator, &instanceBufferInfo, &allocInfo, &instanceBuffer, &instanceBufferAllocation, &instanceBufferAllocInfo );
 
     // Copy instance data to buffer
     memcpy( instanceBufferAllocInfo.pMappedData, instances.data(), static_cast<size_t>( instanceBufferSize ) );
@@ -486,7 +388,7 @@ int main()
       if ( framebufferResized )
       {
         framebufferResized = false;
-        recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator, depthResources );
+        // recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator, depthResources );
         continue;
       }
 
@@ -514,7 +416,7 @@ int main()
         // std::println( "imageIndex: {}", imageIndex );
         // Record command buffer for this frame
         auto & cmd = cmds[currentFrame];
-        recordCommandBuffer( cmd, vertShaderObject, fragShaderObject, swapchainBundle, imageIndex, pipelineLayout, vertexBuffer, instanceBuffer, instanceCount, depthResources );
+        recordCommandBuffer( cmd, shaderBundle, swapchainBundle, imageIndex, vertexBuffer, instanceBuffer, instanceCount, depthResources );
 
         // Submit command buffer waiting on imageAvailable, signal renderFinished and timeline
         // uint64_t renderCompleteValue = ++currentTimelineValue;
@@ -562,18 +464,16 @@ int main()
       catch ( std::exception const & err )
       {
         isDebug( std::println( "Frame rendering exception (recreating swapchain): {}", err.what() ) );
-        recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator, depthResources );
+        // recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources );
         continue;
       }
     }
 
     deviceBundle.device.waitIdle();
-    
-    // Cleanup VMA resources
-    vmaDestroyBuffer(allocator, vertexBuffer, vertexBufferAllocation);
-    vmaDestroyBuffer(allocator, instanceBuffer, instanceBufferAllocation);
-    vmaDestroyImage(allocator, depthResources.image, depthResources.allocation);
-    vmaDestroyAllocator(allocator);
+    // Cleanup VMA resources;
+    vmaDestroyBuffer( allocator, vertexBuffer, vertexBufferAllocation );
+    vmaDestroyBuffer( allocator, instanceBuffer, instanceBufferAllocation );
+    // vmaDestroyAllocator( allocator );
   }
 
   catch ( vk::SystemError & err )

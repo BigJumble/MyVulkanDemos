@@ -5,6 +5,12 @@
 // #include <shaderc/shaderc.hpp>
 #include <vulkan/vulkan_raii.hpp>
 
+#if defined( DEBUG ) || !defined( NDEBUG )
+#  define isDebug( code ) code
+#else
+#  define isDebug( code )
+#endif
+
 namespace core
 {
 

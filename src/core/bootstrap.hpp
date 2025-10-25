@@ -7,10 +7,22 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+
+#include <entt/entt.hpp>
+
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+
+#if defined( DEBUG ) || !defined( NDEBUG )
+#  define isDebug( code ) code
+#else
+#  define isDebug( code )
+#endif
+
 namespace core
 {
-
-  [[nodiscard]] vk::raii::Instance createInstance( vk::raii::Context & context, const std::string & appName, const std::string & engineName );
 
   [[nodiscard]] vk::raii::PhysicalDevice selectPhysicalDevice( const vk::raii::PhysicalDevices & devices );
 
@@ -35,7 +47,7 @@ namespace core
   struct QueueFamilyIndices
   {
     std::optional<uint32_t> graphicsFamily;  // For ray tracing + graphics + compute post processing + presentation
-    std::optional<uint32_t> presentFamily;   // no support for niche hardware
+    std::optional<uint32_t> presentFamily;   // support for niche hardware
     std::optional<uint32_t> computeFamily;   // For async compute physics simulation
 
     bool isComplete() const

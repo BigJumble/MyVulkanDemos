@@ -1,7 +1,6 @@
 #include "helper.hpp"
 
 #include "converter.hpp"
-#include "settings.hpp"
 
 #include <filesystem>
 #include <fstream>
