@@ -74,7 +74,7 @@ clang-format qtbase5-dev qt6-base-dev
 - [x] Implement Vulkan Memory Allocator (VMA)
 - [x] Implement JSON parser for saved state
 - [x] Implement Lua for realtime code
-- [ ] Make each subproject select its instance and device extentions
+- [x] Make each subproject select its instance and device extentions
 - [x] Port Shaderc shader compilation flags
 - [ ] Build abstraction for resource creation with VMA and SPIR-V Reflect (maybe someday)
 - [ ] Model view projection matrix, camera controller
@@ -87,4 +87,4 @@ clang-format qtbase5-dev qt6-base-dev
 - [ ] Render sphere terrain using distance fields or marching cubes
 - [ ] Add OpenXR demo
 
-A modern C++ Vulkan playground featuring modular demos: triangle rasterization, compute shaders, ray tracing, and hot-reloading shader compilation. Built with Vulkan 1.3/1.4, SPIRV-Reflect, shaderc, ImGui integration, live Lua scripting, and extensible project structure for rapid graphics prototyping and engine development.
+

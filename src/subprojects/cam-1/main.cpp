@@ -1,6 +1,7 @@
 #include "bootstrap.hpp"
 #include "helper.hpp"
 #include "settings.hpp"
+#include "device.hpp"
 #include <vulkan/vulkan_core.h>
 
 #define VMA_IMPLEMENTATION
@@ -319,9 +320,10 @@ int main()
 
     core::QueueFamilyIndices queueFamilyIndices = core::findQueueFamilies( physicalDevice, displayBundle.surface );
 
-    core::DeviceBundle deviceBundle = core::createDeviceWithQueues( physicalDevice, queueFamilyIndices );
+    core::DeviceBundle deviceBundle = core::createDeviceWithQueues( physicalDevice, queueFamilyIndices, cfg::EnabledFeatures().makeFeatureChain(), cfg::getRequiredExtensions);
 
     core::SwapchainBundle swapchainBundle = core::createSwapchain( physicalDevice, deviceBundle.device, displayBundle.surface, displayBundle.extent, queueFamilyIndices );
+    
 
     // Create VMA allocator
     VmaAllocatorCreateInfo allocatorInfo = {};

@@ -50,6 +50,7 @@ namespace core
   //   vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance;
 
   // List of required device extensions
+  /*
   inline const std::vector<const char *> deviceExtensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     // VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME,  // Enables fences with presentation
@@ -73,7 +74,7 @@ namespace core
 
     // Add more device extensions here if needed
   };
-
+  */
   // clang-format off
   // List of required instance extensions
   inline const std::vector<const char *> InstanceExtensions = {

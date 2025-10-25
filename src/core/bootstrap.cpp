@@ -1,4 +1,5 @@
 #include "settings.hpp"
+#include "vulkan/vulkan.hpp"
 #include "bootstrap.hpp"
 
 #include <algorithm>
@@ -124,7 +125,7 @@ namespace core
     return indices;
   }
 
-  DeviceBundle createDeviceWithQueues( const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices )
+  DeviceBundle createDeviceWithQueues( const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices, const void * pNextFeatureChain, const std::vector<const char *> & finalExtensions )
   {
     // --- Queues setup ---
     std::set<uint32_t> uniqueQueueFamilies = { indices.graphicsFamily.value(), indices.presentFamily.value(), indices.computeFamily.value() };
@@ -137,197 +138,11 @@ namespace core
       queueCreateInfos.push_back( vk::DeviceQueueCreateInfo{}.setQueueFamilyIndex( queueFamily ).setQueueCount( 1 ).setPQueuePriorities( &queuePriority ) );
     }
 
-    // --- Query supported features ---
-    vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT supportedExtendedDynamicState3{};
-    vk::PhysicalDeviceVulkan14Features                 supported14{};
-    vk::PhysicalDeviceVulkan13Features                 supported13{};
-    vk::PhysicalDeviceVulkan12Features                 supported12{};
-    vk::PhysicalDeviceVulkan11Features                 supported11{};
-    vk::PhysicalDeviceRayTracingPipelineFeaturesKHR    supportedRayTracingPipeline{};
-    vk::PhysicalDeviceAccelerationStructureFeaturesKHR supportedAccelerationStructure{};
-    vk::PhysicalDeviceRayQueryFeaturesKHR              supportedRayQuery{};
-    vk::PhysicalDeviceFeatures2                        supported2{};
-
-    supported2.setPNext( &supported11 );
-    supported11.setPNext( &supported12 );
-    supported12.setPNext( &supported13 );
-    supported13.setPNext( &supported14 );
-    supported14.setPNext( &supportedExtendedDynamicState3 );
-    supportedExtendedDynamicState3.setPNext( &supportedRayTracingPipeline );
-    supportedRayTracingPipeline.setPNext( &supportedAccelerationStructure );
-    supportedAccelerationStructure.setPNext( &supportedRayQuery );
-
-    vkGetPhysicalDeviceFeatures2( static_cast<VkPhysicalDevice>( *physicalDevice ), reinterpret_cast<VkPhysicalDeviceFeatures2 *>( &supported2 ) );
-
-    // --- Enable selectively ---
-    vk::PhysicalDeviceVulkan14Features vulkan14Features{};
-    vulkan14Features.setPushDescriptor( supported14.pushDescriptor );
-    vulkan14Features.setMaintenance5( supported14.maintenance5 );
-    vulkan14Features.setMaintenance6( supported14.maintenance6 );
-    vulkan14Features.setSmoothLines( supported14.smoothLines );
-
-    vk::PhysicalDeviceVulkan13Features vulkan13Features{};
-    vulkan13Features.setDynamicRendering( supported13.dynamicRendering );
-    vulkan13Features.setSynchronization2( supported13.synchronization2 );
-    vulkan13Features.setMaintenance4( supported13.maintenance4 );
-    vulkan14Features.setPNext( &vulkan13Features );
-
-    vk::PhysicalDeviceVulkan12Features vulkan12Features{};
-    vulkan12Features.setDescriptorIndexing( supported12.descriptorIndexing );
-    vulkan12Features.setRuntimeDescriptorArray( supported12.runtimeDescriptorArray );
-    vulkan12Features.setDescriptorBindingPartiallyBound( supported12.descriptorBindingPartiallyBound );
-    vulkan12Features.setDescriptorBindingVariableDescriptorCount( supported12.descriptorBindingVariableDescriptorCount );
-    vulkan12Features.setBufferDeviceAddress( supported12.bufferDeviceAddress );
-    vulkan12Features.setTimelineSemaphore( supported12.timelineSemaphore );
-    vulkan13Features.setPNext( &vulkan12Features );
-
-    vk::PhysicalDeviceVulkan11Features vulkan11Features{};
-    vulkan11Features.setShaderDrawParameters( supported11.shaderDrawParameters );
-    vulkan12Features.setPNext( &vulkan11Features );
-
-    // --- Ray tracing features ---
-    vk::PhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures{};
-    rayTracingPipelineFeatures.setRayTracingPipeline( supportedRayTracingPipeline.rayTracingPipeline );
-    rayTracingPipelineFeatures.setRayTracingPipelineShaderGroupHandleCaptureReplay( supportedRayTracingPipeline.rayTracingPipelineShaderGroupHandleCaptureReplay );
-    rayTracingPipelineFeatures.setRayTracingPipelineShaderGroupHandleCaptureReplayMixed( supportedRayTracingPipeline.rayTracingPipelineShaderGroupHandleCaptureReplayMixed );
-    rayTracingPipelineFeatures.setRayTracingPipelineTraceRaysIndirect( supportedRayTracingPipeline.rayTracingPipelineTraceRaysIndirect );
-    rayTracingPipelineFeatures.setRayTraversalPrimitiveCulling( supportedRayTracingPipeline.rayTraversalPrimitiveCulling );
-    vulkan11Features.setPNext( &rayTracingPipelineFeatures );
-
-    vk::PhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures{};
-    accelerationStructureFeatures.setAccelerationStructure( supportedAccelerationStructure.accelerationStructure );
-    accelerationStructureFeatures.setAccelerationStructureCaptureReplay( supportedAccelerationStructure.accelerationStructureCaptureReplay );
-    accelerationStructureFeatures.setAccelerationStructureIndirectBuild( supportedAccelerationStructure.accelerationStructureIndirectBuild );
-    accelerationStructureFeatures.setAccelerationStructureHostCommands( supportedAccelerationStructure.accelerationStructureHostCommands );
-    accelerationStructureFeatures.setDescriptorBindingAccelerationStructureUpdateAfterBind( supportedAccelerationStructure.descriptorBindingAccelerationStructureUpdateAfterBind );
-    rayTracingPipelineFeatures.setPNext( &accelerationStructureFeatures );
-
-    vk::PhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures{};
-    rayQueryFeatures.setRayQuery( supportedRayQuery.rayQuery );
-    accelerationStructureFeatures.setPNext( &rayQueryFeatures );
-
-    // --- Core features ---
-    vk::PhysicalDeviceFeatures2 deviceFeatures2{};
-
-    vk::PhysicalDeviceFeatures features{};
-    features.setSamplerAnisotropy( supported2.features.samplerAnisotropy );
-    features.setFillModeNonSolid( supported2.features.fillModeNonSolid );
-    features.setWideLines( supported2.features.wideLines );
-
-    deviceFeatures2.setFeatures( features );
-    rayQueryFeatures.setPNext( &deviceFeatures2 );
-
-    // --- Extensions ---
-    std::vector<const char *> finalExtensions = core::deviceExtensions;
-    auto                      avail           = physicalDevice.enumerateDeviceExtensionProperties();
-    // Declare at function scope (before the extension loop)
-    vk::PhysicalDevicePageableDeviceLocalMemoryFeaturesEXT pageableFeatures{};
-    vk::PhysicalDeviceShaderObjectFeaturesEXT              shaderObject{};
-    vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT     extendedDynamicState3{};
-    vk::PhysicalDeviceSwapchainMaintenance1FeaturesEXT     swapchainMaintenance1{};
-
-    bool enablePageable              = false;
-    bool enableShaderObject          = false;
-    bool enableExtendedDynState3     = false;
-    bool enableSwapchainMaintenance1 = false;
-
-    // In your loop:
-    for ( auto const & ep : avail )
-    {
-      // std::println( "Extension: {}", (std::string)ep.extensionName );
-      std::string extName( ep.extensionName );
-      if ( extName == VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME )
-      {
-        finalExtensions.push_back( VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME );
-        finalExtensions.push_back( VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME );
-        enablePageable = true;
-      }
-      if ( extName == VK_EXT_SHADER_OBJECT_EXTENSION_NAME )
-      {
-        finalExtensions.push_back( VK_EXT_SHADER_OBJECT_EXTENSION_NAME );
-        enableShaderObject = true;
-      }
-      if ( extName == VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME )
-      {
-        finalExtensions.push_back( VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME );
-        enableExtendedDynState3 = true;
-      }
-      if ( extName == VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME )
-      {
-        finalExtensions.push_back( VK_EXT_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME );
-        enableSwapchainMaintenance1 = true;
-      }
-    }
-    // finalExtensions.push_back( VK_KHR_SWAPCHAIN_MAINTENANCE_1_EXTENSION_NAME );
-    // enableSwapchainMaintenance1 = true;
-    // After the loop, build the pNext chain properly:
-    void * chainTail = deviceFeatures2.pNext;
-
-    if ( enableShaderObject )
-    {
-      shaderObject.setShaderObject( VK_TRUE );
-      shaderObject.setPNext( chainTail );
-      chainTail = &shaderObject;
-    }
-
-    if ( enablePageable )
-    {
-      pageableFeatures.setPageableDeviceLocalMemory( VK_TRUE );
-      pageableFeatures.setPNext( chainTail );
-      chainTail = &pageableFeatures;
-    }
-
-    if ( enableExtendedDynState3 )
-    {
-      // Enable all Extended Dynamic State 3 features
-      extendedDynamicState3.setExtendedDynamicState3TessellationDomainOrigin( supportedExtendedDynamicState3.extendedDynamicState3TessellationDomainOrigin );
-      extendedDynamicState3.setExtendedDynamicState3DepthClampEnable( supportedExtendedDynamicState3.extendedDynamicState3DepthClampEnable );
-      extendedDynamicState3.setExtendedDynamicState3PolygonMode( supportedExtendedDynamicState3.extendedDynamicState3PolygonMode );
-      extendedDynamicState3.setExtendedDynamicState3RasterizationSamples( supportedExtendedDynamicState3.extendedDynamicState3RasterizationSamples );
-      extendedDynamicState3.setExtendedDynamicState3SampleMask( supportedExtendedDynamicState3.extendedDynamicState3SampleMask );
-      extendedDynamicState3.setExtendedDynamicState3AlphaToCoverageEnable( supportedExtendedDynamicState3.extendedDynamicState3AlphaToCoverageEnable );
-      extendedDynamicState3.setExtendedDynamicState3AlphaToOneEnable( supportedExtendedDynamicState3.extendedDynamicState3AlphaToOneEnable );
-      extendedDynamicState3.setExtendedDynamicState3LogicOpEnable( supportedExtendedDynamicState3.extendedDynamicState3LogicOpEnable );
-      extendedDynamicState3.setExtendedDynamicState3ColorBlendEnable( supportedExtendedDynamicState3.extendedDynamicState3ColorBlendEnable );
-      extendedDynamicState3.setExtendedDynamicState3ColorBlendEquation( supportedExtendedDynamicState3.extendedDynamicState3ColorBlendEquation );
-      extendedDynamicState3.setExtendedDynamicState3ColorWriteMask( supportedExtendedDynamicState3.extendedDynamicState3ColorWriteMask );
-      extendedDynamicState3.setExtendedDynamicState3RasterizationStream( supportedExtendedDynamicState3.extendedDynamicState3RasterizationStream );
-      extendedDynamicState3.setExtendedDynamicState3ConservativeRasterizationMode( supportedExtendedDynamicState3.extendedDynamicState3ConservativeRasterizationMode );
-      extendedDynamicState3.setExtendedDynamicState3ExtraPrimitiveOverestimationSize( supportedExtendedDynamicState3.extendedDynamicState3ExtraPrimitiveOverestimationSize );
-      extendedDynamicState3.setExtendedDynamicState3DepthClipEnable( supportedExtendedDynamicState3.extendedDynamicState3DepthClipEnable );
-      extendedDynamicState3.setExtendedDynamicState3SampleLocationsEnable( supportedExtendedDynamicState3.extendedDynamicState3SampleLocationsEnable );
-      extendedDynamicState3.setExtendedDynamicState3ColorBlendAdvanced( supportedExtendedDynamicState3.extendedDynamicState3ColorBlendAdvanced );
-      extendedDynamicState3.setExtendedDynamicState3ProvokingVertexMode( supportedExtendedDynamicState3.extendedDynamicState3ProvokingVertexMode );
-      extendedDynamicState3.setExtendedDynamicState3LineRasterizationMode( supportedExtendedDynamicState3.extendedDynamicState3LineRasterizationMode );
-      extendedDynamicState3.setExtendedDynamicState3LineStippleEnable( supportedExtendedDynamicState3.extendedDynamicState3LineStippleEnable );
-      extendedDynamicState3.setExtendedDynamicState3DepthClipNegativeOneToOne( supportedExtendedDynamicState3.extendedDynamicState3DepthClipNegativeOneToOne );
-      extendedDynamicState3.setExtendedDynamicState3ViewportWScalingEnable( supportedExtendedDynamicState3.extendedDynamicState3ViewportWScalingEnable );
-      extendedDynamicState3.setExtendedDynamicState3ViewportSwizzle( supportedExtendedDynamicState3.extendedDynamicState3ViewportSwizzle );
-      extendedDynamicState3.setExtendedDynamicState3CoverageToColorEnable( supportedExtendedDynamicState3.extendedDynamicState3CoverageToColorEnable );
-      extendedDynamicState3.setExtendedDynamicState3CoverageToColorLocation( supportedExtendedDynamicState3.extendedDynamicState3CoverageToColorLocation );
-      extendedDynamicState3.setExtendedDynamicState3CoverageModulationMode( supportedExtendedDynamicState3.extendedDynamicState3CoverageModulationMode );
-      extendedDynamicState3.setExtendedDynamicState3CoverageModulationTableEnable( supportedExtendedDynamicState3.extendedDynamicState3CoverageModulationTableEnable );
-      extendedDynamicState3.setExtendedDynamicState3CoverageModulationTable( supportedExtendedDynamicState3.extendedDynamicState3CoverageModulationTable );
-      extendedDynamicState3.setExtendedDynamicState3CoverageReductionMode( supportedExtendedDynamicState3.extendedDynamicState3CoverageReductionMode );
-      extendedDynamicState3.setExtendedDynamicState3RepresentativeFragmentTestEnable( supportedExtendedDynamicState3.extendedDynamicState3RepresentativeFragmentTestEnable );
-      extendedDynamicState3.setExtendedDynamicState3ShadingRateImageEnable( supportedExtendedDynamicState3.extendedDynamicState3ShadingRateImageEnable );
-      extendedDynamicState3.setPNext( chainTail );
-      chainTail = &extendedDynamicState3;
-    }
-    if ( enableSwapchainMaintenance1 )
-    {
-      swapchainMaintenance1.setSwapchainMaintenance1( VK_TRUE );
-      swapchainMaintenance1.setPNext( chainTail );
-      chainTail = &swapchainMaintenance1;
-    }
-
-    // Update the head of the chain
-    deviceFeatures2.setPNext( chainTail );
     // --- Device create info ---
     vk::DeviceCreateInfo deviceCreateInfo{};
     deviceCreateInfo.setQueueCreateInfos( queueCreateInfos );
     deviceCreateInfo.setPEnabledExtensionNames( finalExtensions );
-    deviceCreateInfo.setPNext( &vulkan14Features );
+    deviceCreateInfo.setPNext( pNextFeatureChain );
 
     // --- Create device + queues ---
     DeviceBundle bundle{};

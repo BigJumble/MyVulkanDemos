@@ -55,7 +55,7 @@ namespace core
     QueueFamilyIndices indices;
   };
 
-  [[nodiscard]] DeviceBundle createDeviceWithQueues( const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices );
+  [[nodiscard]] DeviceBundle createDeviceWithQueues( const vk::raii::PhysicalDevice & physicalDevice, const QueueFamilyIndices & indices, const void * pNextFeatureChain, const std::vector<const char *> & finalExtensions );
 
   struct SwapchainSupportDetails
   {
