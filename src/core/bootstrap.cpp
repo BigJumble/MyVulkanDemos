@@ -41,11 +41,29 @@ namespace core
   DisplayBundle::DisplayBundle( vk::raii::Instance const & instance, std::string const & windowName, vk::Extent2D const & extent_ )
     : extent( extent_ ), window( nullptr ), name( windowName ), surface( nullptr )
   {
+    // Set up error callback before initialization to capture any errors
+    static std::string lastGlfwError;
+    glfwSetErrorCallback( []( int error, const char * msg ) {
+      lastGlfwError = std::string( "GLFW Error (" ) + std::to_string( error ) + "): " + ( msg ? msg : "Unknown error" );
+      std::cerr << "[GLFW] " << lastGlfwError << std::endl;
+    } );
+
+    isDebug( std::println( "[DisplayBundle] Initializing GLFW for window: '{}' ({}x{})", windowName, extent_.width, extent_.height ) );
+
     if ( !glfwInit() )
     {
-      throw std::runtime_error( "Failed to initialize GLFW!" );
+      std::string errorMsg = "Failed to initialize GLFW";
+      if ( !lastGlfwError.empty() )
+      {
+        errorMsg += ": " + lastGlfwError;
+      }
+      else
+      {
+        errorMsg += " (no error details available)";
+      }
+      std::println( "[DisplayBundle] ERROR: {}", errorMsg );
+      throw std::runtime_error( errorMsg );
     }
-    glfwSetErrorCallback( []( int error, const char * msg ) { std::cerr << "glfw: " << "(" << error << ") " << msg << std::endl; } );
 
     glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
     window = glfwCreateWindow( extent.width, extent.height, windowName.c_str(), nullptr, nullptr );

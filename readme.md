@@ -63,6 +63,16 @@ clang-format qtbase5-dev qt6-base-dev
 
 ---
 
+### Bazzite, immutable linux
+
+- create distrobox with fedora:41
+- install cursor/vs code there
+- distrobox-export --app "ur ide"
+- in that ide since it runs in a podman container also add this (for some reason Vulkan didn't get full forwarding 💀):
+- ```export VK_ICD_FILENAMES=/run/host/usr/share/vulkan/icd.d/nvidia_icd.x86_64.json```
+- In /core cmake file select between X11 or Wayland
+- Note: I've tried dev containers and died inside 💀💀💀
+
 ## TODO
 
 - [x] Raster triangle example

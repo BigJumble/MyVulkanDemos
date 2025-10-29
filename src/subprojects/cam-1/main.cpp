@@ -407,7 +407,7 @@ int main()
         auto acquire = swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailable, nullptr );
         if ( acquire.result == vk::Result::eErrorOutOfDateKHR )
         {
-          throw acquire.result;
+          throw std::runtime_error( "acquire.result: " + std::to_string( static_cast<int>( acquire.result ) ) );
         }
         uint32_t imageIndex = acquire.value;
 
@@ -456,7 +456,7 @@ int main()
 
         if ( presentRes == vk::Result::eSuboptimalKHR || presentRes == vk::Result::eErrorOutOfDateKHR )
         {
-          throw presentRes;
+          throw std::runtime_error( "presentRes: " + std::to_string( static_cast<int>( presentRes ) ) );
         }
 
         currentFrame = ( currentFrame + 1 ) % MAX_FRAMES_IN_FLIGHT;
