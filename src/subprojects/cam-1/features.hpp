@@ -1,6 +1,9 @@
 #pragma once
+#include "vulkan/vulkan.hpp"
+
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
+
 
 // clang-format off
 namespace cfg {
@@ -10,9 +13,18 @@ namespace cfg {
   // Each feature links to the one declared above it via setPNext()
   // -------------------------------------------------------------------------
   
+
+  inline vk::PhysicalDeviceRobustness2FeaturesKHR robustness2Features = 
+      vk::PhysicalDeviceRobustness2FeaturesKHR()
+          .setRobustBufferAccess2(true)
+          .setRobustImageAccess2(true);
+
+        //   .setPNext();
+
   // Vulkan Version Features (1.1, 1.2, 1.3, 1.4) - bottom of chain
   inline vk::PhysicalDeviceVulkan11Features vulkan11Features = 
-      vk::PhysicalDeviceVulkan11Features();
+      vk::PhysicalDeviceVulkan11Features()
+          .setPNext(&robustness2Features);
       // .setShaderDrawParameters(true);
   
   inline vk::PhysicalDeviceVulkan12Features vulkan12Features = 
@@ -22,6 +34,10 @@ namespace cfg {
           .setRuntimeDescriptorArray(true)
           .setDescriptorBindingPartiallyBound(true)
           .setTimelineSemaphore(true)
+          .setVulkanMemoryModel(true)
+          .setVulkanMemoryModelDeviceScope(true)
+          .setScalarBlockLayout(true)
+          .setStorageBuffer8BitAccess(true)
           .setPNext(&vulkan11Features);
   
   inline vk::PhysicalDeviceVulkan13Features vulkan13Features = 
@@ -91,6 +107,10 @@ namespace cfg {
       vk::PhysicalDeviceFeatures()
           .setSamplerAnisotropy(true)
           .setFillModeNonSolid(true)
+          .setFragmentStoresAndAtomics(true)
+          .setVertexPipelineStoresAndAtomics(true)
+          .setShaderInt64(true)
+          .setRobustBufferAccess(true)
           .setWideLines(true);
   
   inline vk::PhysicalDeviceFeatures2 enabledFeaturesChain = 
@@ -123,7 +143,6 @@ namespace cfg {
     // VK_EXT_PAGEABLE_DEVICE_LOCAL_MEMORY_EXTENSION_NAME,
     // VK_EXT_MEMORY_PRIORITY_EXTENSION_NAME,
   };
-
 
   inline const std::vector<const char *> InstanceExtensions = {
     VK_KHR_SURFACE_EXTENSION_NAME,

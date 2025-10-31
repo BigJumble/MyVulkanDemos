@@ -1,36 +1,17 @@
 
 #include "bootstrap.hpp"
+#include "data.hpp"
+#include "features.hpp"
 #include "helper.hpp"
-// #include "features.hpp"
 #include "init.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
 
+
 #define VMA_IMPLEMENTATION
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+
 #include <print>
 #include <vk_mem_alloc.h>
-
-constexpr std::string_view AppName    = "MyApp";
-constexpr std::string_view EngineName = "MyEngine";
-
-struct PushConstants
-{
-  glm::mat4 view;
-  glm::mat4 proj;
-};
-
-struct Vertex
-{
-  glm::vec2 position;
-  glm::vec3 color;
-};
-
-struct InstanceData
-{
-  glm::vec3 position;
-};
 
 static void recordCommandBuffer(
   vk::raii::CommandBuffer &          cmd,
@@ -128,15 +109,15 @@ static void recordCommandBuffer(
 
   // Set up vertex input state - binding 0 for per-vertex data, binding 1 for per-instance data
   std::array<vk::VertexInputBindingDescription2EXT, 2> bindingDescs{};
-  bindingDescs[0].setBinding( 0 ).setStride( sizeof( Vertex ) ).setInputRate( vk::VertexInputRate::eVertex ).setDivisor( 1 );
-  bindingDescs[1].setBinding( 1 ).setStride( sizeof( InstanceData ) ).setInputRate( vk::VertexInputRate::eInstance ).setDivisor( 1 );
+  bindingDescs[0].setBinding( 0 ).setStride( sizeof( data::Vertex ) ).setInputRate( vk::VertexInputRate::eVertex ).setDivisor( 1 );
+  bindingDescs[1].setBinding( 1 ).setStride( sizeof( data::InstanceData ) ).setInputRate( vk::VertexInputRate::eInstance ).setDivisor( 1 );
 
   std::array<vk::VertexInputAttributeDescription2EXT, 3> attributeDescs{};
   // Per-vertex attributes
-  attributeDescs[0].setLocation( 0 ).setBinding( 0 ).setFormat( vk::Format::eR32G32Sfloat ).setOffset( offsetof( Vertex, position ) );
-  attributeDescs[1].setLocation( 1 ).setBinding( 0 ).setFormat( vk::Format::eR32G32B32Sfloat ).setOffset( offsetof( Vertex, color ) );
+  attributeDescs[0].setLocation( 0 ).setBinding( 0 ).setFormat( vk::Format::eR32G32Sfloat ).setOffset( offsetof( data::Vertex, position ) );
+  attributeDescs[1].setLocation( 1 ).setBinding( 0 ).setFormat( vk::Format::eR32G32B32Sfloat ).setOffset( offsetof( data::Vertex, color ) );
   // Per-instance attribute
-  attributeDescs[2].setLocation( 2 ).setBinding( 1 ).setFormat( vk::Format::eR32G32B32Sfloat ).setOffset( offsetof( InstanceData, position ) );
+  attributeDescs[2].setLocation( 2 ).setBinding( 1 ).setFormat( vk::Format::eR32G32B32Sfloat ).setOffset( offsetof( data::InstanceData, position ) );
 
   cmd.setVertexInputEXT( bindingDescs, attributeDescs );
 
@@ -181,8 +162,8 @@ static void recordCommandBuffer(
   glm::mat4 proj   = glm::perspective( glm::radians( 45.0f ), aspect, 0.1f, 10000.0f );
   proj[1][1] *= -1;  // Flip Y for Vulkan
 
-  PushConstants pc{ view, proj };
-  cmd.pushConstants<PushConstants>( *shaderBundle.pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, { pc } );
+  data::PushConstants pc{ view, proj };
+  cmd.pushConstants<data::PushConstants>( *shaderBundle.pipelineLayout, vk::ShaderStageFlagBits::eVertex, 0, { pc } );
 
   cmd.draw( 3, instanceCount, 0, 0 );
 
@@ -273,21 +254,12 @@ int main()
     init::raii::DepthResources depthResources( deviceBundle.device, allocator, swapchainBundle.extent );
 
     init::raii::ShaderBundle shaderBundle(
-      deviceBundle.device, { "triangle.vert" }, { "triangle.frag" }, vk::PushConstantRange{ vk::ShaderStageFlagBits::eVertex, 0, sizeof( PushConstants ) } );
+      deviceBundle.device,
+      { "triangle.vert" },
+      { "triangle.frag" },
+      vk::PushConstantRange{ vk::ShaderStageFlagBits::eVertex, 0, sizeof( data::PushConstants ) } );
 
-    // Create vertex buffer for an equilateral triangle centered at origin, inscribed in a 1x1 grid (side length = 1).
-    // Calculate vertices: center at (0,0), one at bottom (-0.5,-h/3), two at (+/-0.5,+h*2/3)
-    // Height of equilateral triangle = sqrt(3)/2 * side
-    const float side   = 1.0f;
-    const float height = side * std::sqrt( 3.0f ) / 2.0f;
-
-    std::array<Vertex, 3> vertices = {
-      Vertex{ glm::vec2( 0.0f, -height / 3.0f ), glm::vec3( 1.0f, 0.5f, 0.5f ) },         // bottom
-      Vertex{ glm::vec2( 0.5f, height * 2.0f / 3.0f ), glm::vec3( 0.5f, 1.0f, 0.5f ) },   // right
-      Vertex{ glm::vec2( -0.5f, height * 2.0f / 3.0f ), glm::vec3( 0.5f, 0.5f, 1.0f ) },  // left
-    };
-
-    VkDeviceSize bufferSize = sizeof( vertices );
+    VkDeviceSize bufferSize = sizeof( data::triangleVertices );
 
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -306,31 +278,10 @@ int main()
     vmaCreateBuffer( allocator, &bufferInfo, &allocInfo, &vertexBuffer, &vertexBufferAllocation, &vertexBufferAllocInfo );
 
     // Copy vertex data to buffer (already mapped)
-    memcpy( vertexBufferAllocInfo.pMappedData, vertices.data(), static_cast<size_t>( bufferSize ) );
+    memcpy( vertexBufferAllocInfo.pMappedData, data::triangleVertices.data(), static_cast<size_t>( bufferSize ) );
 
-    // Create instance buffer with multiple 3D positions
-    std::vector<InstanceData> instances;
-    // Precompute the number of instances in the 3D grid for efficient reservation
-    constexpr int gridMin              = -100;
-    constexpr int gridMax              = 100;
-    constexpr int gridCount            = gridMax - gridMin + 1;
-    const size_t  instanceReserveCount = static_cast<size_t>( gridCount ) * gridCount * gridCount;
-    instances.reserve( instanceReserveCount );
-
-    // Create a grid of triangles
-    for ( int x = gridMin; x <= gridMax; ++x )
-    {
-      for ( int y = gridMin; y <= gridMax; ++y )
-      {
-        for ( int z = gridMin; z <= gridMax; ++z )
-        {
-          instances.push_back( InstanceData{ glm::vec3( float( x ) * 3.0f, float( y ) * 3.0f, float( z ) * 3.0f ) } );
-        }
-      }
-    }
-
-    uint32_t     instanceCount      = static_cast<uint32_t>( instances.size() );
-    VkDeviceSize instanceBufferSize = sizeof( InstanceData ) * instances.size();
+    uint32_t     instanceCount      = static_cast<uint32_t>( data::instancesPos.size() );
+    VkDeviceSize instanceBufferSize = sizeof( data::InstanceData ) * data::instancesPos.size();
 
     VkBufferCreateInfo instanceBufferInfo = {};
     instanceBufferInfo.sType              = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -345,7 +296,7 @@ int main()
     vmaCreateBuffer( allocator, &instanceBufferInfo, &allocInfo, &instanceBuffer, &instanceBufferAllocation, &instanceBufferAllocInfo );
 
     // Copy instance data to buffer
-    memcpy( instanceBufferAllocInfo.pMappedData, instances.data(), static_cast<size_t>( instanceBufferSize ) );
+    memcpy( instanceBufferAllocInfo.pMappedData, data::instancesPos.data(), static_cast<size_t>( instanceBufferSize ) );
 
     vk::CommandPoolCreateInfo cmdPoolInfo{ vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamilyIndices.graphicsFamily.value() };
     vk::raii::CommandPool     commandPool{ deviceBundle.device, cmdPoolInfo };
@@ -388,7 +339,7 @@ int main()
       if ( framebufferResized )
       {
         framebufferResized = false;
-        // recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator, depthResources );
+        recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources );
         continue;
       }
 
@@ -464,7 +415,7 @@ int main()
       catch ( std::exception const & err )
       {
         isDebug( std::println( "Frame rendering exception (recreating swapchain): {}", err.what() ) );
-        // recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources );
+        recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources );
         continue;
       }
     }

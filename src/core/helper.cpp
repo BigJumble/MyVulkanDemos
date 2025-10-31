@@ -96,11 +96,39 @@ namespace core
     std::vector<uint32_t> getShaderCode( const std::string & shaderName )
     {
       //always compile from source in debug mode
-      isDebug( std::println( "[DEBUG MODE] Compiling shader from source : {}", shaderName ); return compileShader( shaderName ); );
+      // isDebug( std::println( "[DEBUG MODE] Compiling shader from source : {}", shaderName ); return compileShader( shaderName ); );
 
-      // First, try to read from /compiled directory
+      std::string sourcePath = "./shaders/" + shaderName;
       std::string compiledPath = "./compiled/" + shaderName + ".spv";
 
+      // Check if source file exists
+      bool sourceExists = std::filesystem::exists( sourcePath );
+      if ( !sourceExists )
+      {
+        throw std::runtime_error( "Shader source file does not exist: " + sourcePath );
+      }
+
+      // Get source file modification time
+      auto sourceTime = std::filesystem::last_write_time( sourcePath );
+
+      // Check if compiled file exists and get its modification time
+      bool compiledExists = std::filesystem::exists( compiledPath );
+      bool needsRecompilation = !compiledExists;
+
+      if ( compiledExists )
+      {
+        auto compiledTime = std::filesystem::last_write_time( compiledPath );
+        // Recompile if source is newer than compiled
+        needsRecompilation = sourceTime > compiledTime;
+      }
+
+      if ( needsRecompilation )
+      {
+        std::println( "Compiling shader from source: {} (source is newer or compiled missing)", shaderName );
+        return compileShader( shaderName );
+      }
+
+      // Try to read from compiled directory
       std::vector<uint32_t> spirv = readCompiledShader( compiledPath );
       if ( !spirv.empty() )
       {
@@ -108,8 +136,8 @@ namespace core
         return spirv;
       }
 
-      std::println( "Compiling shader from source: {}", shaderName );
-      // If compiled file doesn't exist or is invalid, compile from source
+      // If read failed (file corrupted), recompile
+      std::println( "Compiled shader file is invalid, recompiling: {}", shaderName );
       return compileShader( shaderName );
     }
 
