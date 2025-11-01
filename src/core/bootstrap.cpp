@@ -272,10 +272,17 @@ namespace core
       createInfo.setOldSwapchain( **oldSwapchain );
     }
 
+    // lol this not supported
+    // vk::SwapchainPresentScalingCreateInfoEXT presentScalingInfo{};
+    // presentScalingInfo.setPresentGravityX(vk::PresentGravityFlagBitsKHR::eCentered);
+    // presentScalingInfo.setPresentGravityY(vk::PresentGravityFlagBitsKHR::eCentered);
+    // presentScalingInfo.setScalingBehavior(vk::PresentScalingFlagBitsKHR::eAspectRatioStretch);
+
     // Add VkSwapchainPresentModesCreateInfoKHR to inform implementation about swapchain maintenance awareness
     vk::SwapchainPresentModesCreateInfoEXT presentModesInfo{};
     presentModesInfo.setPresentModeCount( 1 );
     presentModesInfo.setPPresentModes( &presentMode );
+    // presentModesInfo.setPNext( &presentScalingInfo );
     createInfo.setPNext( &presentModesInfo );
 
     SwapchainBundle bundle{};

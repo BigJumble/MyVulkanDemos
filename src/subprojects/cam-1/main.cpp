@@ -4,9 +4,9 @@
 #include "features.hpp"
 #include "helper.hpp"
 #include "init.hpp"
+#include "vulkan/vulkan.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
-
 
 #define VMA_IMPLEMENTATION
 
@@ -392,8 +392,22 @@ int main()
 
         deviceBundle.graphicsQueue.submit2( submitInfo );
 
+        // Dynamic vsync: Use FIFO for vsync, or switch to immediate/mailbox for uncapped
+        // For now, using FIFO (vsync enabled). Change to eImmediate or eMailbox for no vsync
+        vk::PresentModeKHR dynamicPresentMode = vk::PresentModeKHR::eFifoRelaxed;
+
+        vk::SwapchainPresentScalingCreateInfoEXT presentScalingInfo{};
+        presentScalingInfo.setPresentGravityX( vk::PresentGravityFlagBitsKHR::eCentered );
+        presentScalingInfo.setPresentGravityY( vk::PresentGravityFlagBitsKHR::eCentered );
+        presentScalingInfo.setScalingBehavior( vk::PresentScalingFlagBitsKHR::eAspectRatioStretch );
+
+        vk::SwapchainPresentModeInfoEXT presentModeInfo{};
+        presentModeInfo.setSwapchainCount( 1 );
+        presentModeInfo.setPPresentModes( &dynamicPresentMode );
+
         vk::SwapchainPresentFenceInfoEXT presentFenceInfo{};
         presentFenceInfo.setSwapchainCount( 1 ).setPFences( &*presentFence );
+        presentFenceInfo.setPNext( &presentModeInfo );
 
         vk::PresentInfoKHR presentInfo{};
         presentInfo.setPNext( &presentFenceInfo )
