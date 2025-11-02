@@ -6,8 +6,8 @@
 
 namespace data
 {
-  constexpr std::string_view AppName    = "MyApp";
-  constexpr std::string_view EngineName = "MyEngine";
+  inline constexpr std::string_view AppName    = "MyApp";
+  inline constexpr std::string_view EngineName = "MyEngine";
 
   struct PushConstants
   {
@@ -26,22 +26,22 @@ namespace data
     glm::vec3 position;
   };
 
-  constexpr float side   = 1.0f;
-  constexpr float height = side * 0.86602540378f;  // sqrt(3)/2
+  inline constexpr float side   = 1.0f;
+  inline constexpr float height = side * 0.86602540378f;  // sqrt(3)/2
 
-  constexpr std::array<Vertex, 3> triangleVertices = {
+  inline constexpr std::array<Vertex, 3> triangleVertices = {
     Vertex{ glm::vec2( 0.0f, -height / 3.0f ), glm::vec3( 1.0f, 0.5f, 0.5f ) },         // bottom
     Vertex{ glm::vec2( 0.5f, height * 2.0f / 3.0f ), glm::vec3( 0.5f, 1.0f, 0.5f ) },   // right
     Vertex{ glm::vec2( -0.5f, height * 2.0f / 3.0f ), glm::vec3( 0.5f, 0.5f, 1.0f ) },  // left
   };
 
-  constexpr int    gridMin       = -20;
-  constexpr int    gridMax       = 20;
-  constexpr int    gridCount     = gridMax - gridMin + 1;
-  constexpr size_t instanceCount = static_cast<size_t>( gridCount ) * gridCount * gridCount;
+  inline constexpr int    gridMin       = -20;
+  inline constexpr int    gridMax       = 20;
+  inline constexpr int    gridCount     = gridMax - gridMin + 1;
+  inline constexpr size_t instanceCount = static_cast<size_t>( gridCount ) * gridCount * gridCount;
 
   // Generate instances at compile time
-  constexpr auto createInstances()
+  inline constexpr auto createInstances()
   {
     std::array<InstanceData, instanceCount> instancesPos{};
     size_t                                  index = 0;
@@ -60,6 +60,6 @@ namespace data
     return instancesPos;
   }
 
-  constexpr std::array<InstanceData, instanceCount> instancesPos = createInstances();
+  inline constexpr std::array<InstanceData, instanceCount> instancesPos = createInstances();
 
 }  // namespace data

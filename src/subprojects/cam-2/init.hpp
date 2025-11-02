@@ -3,11 +3,14 @@
 #include "../core/helper.hpp"
 
 #include <vk_mem_alloc.h>
-#include <vulkan/vulkan_core.h>
+// #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_raii.hpp>
 #include <vector>
 #include <string>
 
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_vulkan.h"
 // clang-format on
 
 namespace init
@@ -254,6 +257,97 @@ namespace init
         return vk::raii::ShaderEXT(device, shaderInfo);
       }
     };
-  }  // namespace raii
 
+    struct IMGUI
+    {
+      vk::raii::DescriptorPool descriptorPool;
+      
+      IMGUI(vk::raii::Device const& device,
+            vk::raii::Instance const& instance,
+            vk::raii::PhysicalDevice const& physicalDevice,
+            uint32_t queueFamily,
+            vk::raii::Queue const& queue,
+            GLFWwindow* window,
+            uint32_t minImageCount,
+            uint32_t imageCount,
+            vk::Format swapchainFormat,
+            vk::Format depthFormat)
+        : descriptorPool(createDescriptorPool(device))
+      {
+        // Initialize ImGui context
+        IMGUI_CHECKVERSION();
+        ImGui::CreateContext();
+        ImGui::StyleColorsDark();
+        
+        // Initialize GLFW implementation
+        ImGui_ImplGlfw_InitForVulkan(window, true);
+        
+        // Initialize Vulkan implementation
+        ImGui_ImplVulkan_InitInfo initInfo{};
+        initInfo.Instance = *instance;
+        initInfo.PhysicalDevice = *physicalDevice;
+        initInfo.Device = *device;
+        initInfo.QueueFamily = queueFamily;
+        initInfo.Queue = *queue;
+        initInfo.DescriptorPool = *descriptorPool;
+        initInfo.RenderPass = VK_NULL_HANDLE;
+        initInfo.MinImageCount = minImageCount;
+        initInfo.ImageCount = imageCount;
+        initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+        initInfo.UseDynamicRendering = true;
+        
+        // Set up dynamic rendering info
+        vk::PipelineRenderingCreateInfoKHR pipelineRenderingInfo{};
+        pipelineRenderingInfo.colorAttachmentCount = 1;
+        pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
+        pipelineRenderingInfo.depthAttachmentFormat = depthFormat;
+        
+        initInfo.PipelineRenderingCreateInfo = pipelineRenderingInfo;
+        
+        ImGui_ImplVulkan_Init(&initInfo);
+      }
+      
+      ~IMGUI()
+      {
+        ImGui_ImplVulkan_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
+        ImGui::DestroyContext();
+        // descriptorPool is automatically destroyed by vk::raii::DescriptorPool
+      }
+      
+      // Delete copy operations
+      IMGUI(IMGUI const&) = delete;
+      IMGUI& operator=(IMGUI const&) = delete;
+      
+      // Allow move operations
+      IMGUI(IMGUI&& other) noexcept = default;
+      IMGUI& operator=(IMGUI&& other) noexcept = default;
+      
+    private:
+      static vk::raii::DescriptorPool createDescriptorPool(vk::raii::Device const& device)
+      {
+        std::array<vk::DescriptorPoolSize, 11> poolSizes = {
+          vk::DescriptorPoolSize{ vk::DescriptorType::eSampler, 1000 },
+          vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1000 },
+          vk::DescriptorPoolSize{ vk::DescriptorType::eSampledImage, 1000 },
+          vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1000 },
+          vk::DescriptorPoolSize{ vk::DescriptorType::eUniformTexelBuffer, 1000 },
+          vk::DescriptorPoolSize{ vk::DescriptorType::eStorageTexelBuffer, 1000 },
+          vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1000 },
+          vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
+          vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBufferDynamic, 1000 },
+          vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBufferDynamic, 1000 },
+          vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 1000 }
+        };
+        
+        vk::DescriptorPoolCreateInfo poolInfo{};
+        poolInfo.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
+        poolInfo.maxSets = 1000 * static_cast<uint32_t>(poolSizes.size());
+        poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+        poolInfo.pPoolSizes = poolSizes.data();
+        
+        return vk::raii::DescriptorPool{ device, poolInfo };
+      }
+    };
+  }  // namespace raii
 }  // namespace init

@@ -120,36 +120,36 @@ namespace ui
       ImGui::Checkbox( "Primitive Restart Enable", &state::primitiveRestartEnable );
     }
 
-    // Multisample State
-    if ( ImGui::CollapsingHeader( "Multisample State", ImGuiTreeNodeFlags_DefaultOpen ) )
-    {
-      int sampleCount = 0;
-      switch ( state::rasterizationSamples )
-      {
-        case vk::SampleCountFlagBits::e1 : sampleCount = 0; break;
-        case vk::SampleCountFlagBits::e2 : sampleCount = 1; break;
-        case vk::SampleCountFlagBits::e4 : sampleCount = 2; break;
-        case vk::SampleCountFlagBits::e8 : sampleCount = 3; break;
-        case vk::SampleCountFlagBits::e16: sampleCount = 4; break;
-        case vk::SampleCountFlagBits::e32: sampleCount = 5; break;
-        case vk::SampleCountFlagBits::e64: sampleCount = 6; break;
-        default                          : break;
-      }
-      const char * sampleLabels[] = { "1x", "2x", "4x", "8x", "16x", "32x", "64x" };
-      if ( ImGui::Combo( "Samples", &sampleCount, sampleLabels, IM_ARRAYSIZE( sampleLabels ) ) )
-      {
-        switch ( sampleCount )
-        {
-          case 0: state::rasterizationSamples = vk::SampleCountFlagBits::e1; break;
-          case 1: state::rasterizationSamples = vk::SampleCountFlagBits::e2; break;
-          case 2: state::rasterizationSamples = vk::SampleCountFlagBits::e4; break;
-          case 3: state::rasterizationSamples = vk::SampleCountFlagBits::e8; break;
-          case 4: state::rasterizationSamples = vk::SampleCountFlagBits::e16; break;
-          case 5: state::rasterizationSamples = vk::SampleCountFlagBits::e32; break;
-          case 6: state::rasterizationSamples = vk::SampleCountFlagBits::e64; break;
-        }
-      }
-    }
+    // // Multisample State
+    // if ( ImGui::CollapsingHeader( "Multisample State", ImGuiTreeNodeFlags_DefaultOpen ) )
+    // {
+    //   int sampleCount = 0;
+    //   switch ( state::rasterizationSamples )
+    //   {
+    //     case vk::SampleCountFlagBits::e1 : sampleCount = 0; break;
+    //     case vk::SampleCountFlagBits::e2 : sampleCount = 1; break;
+    //     case vk::SampleCountFlagBits::e4 : sampleCount = 2; break;
+    //     case vk::SampleCountFlagBits::e8 : sampleCount = 3; break;
+    //     case vk::SampleCountFlagBits::e16: sampleCount = 4; break;
+    //     case vk::SampleCountFlagBits::e32: sampleCount = 5; break;
+    //     case vk::SampleCountFlagBits::e64: sampleCount = 6; break;
+    //     default                          : break;
+    //   }
+    //   const char * sampleLabels[] = { "1x", "2x", "4x", "8x", "16x", "32x", "64x" };
+    //   if ( ImGui::Combo( "Samples", &sampleCount, sampleLabels, IM_ARRAYSIZE( sampleLabels ) ) )
+    //   {
+    //     switch ( sampleCount )
+    //     {
+    //       case 0: state::rasterizationSamples = vk::SampleCountFlagBits::e1; break;
+    //       case 1: state::rasterizationSamples = vk::SampleCountFlagBits::e2; break;
+    //       case 2: state::rasterizationSamples = vk::SampleCountFlagBits::e4; break;
+    //       case 3: state::rasterizationSamples = vk::SampleCountFlagBits::e8; break;
+    //       case 4: state::rasterizationSamples = vk::SampleCountFlagBits::e16; break;
+    //       case 5: state::rasterizationSamples = vk::SampleCountFlagBits::e32; break;
+    //       case 6: state::rasterizationSamples = vk::SampleCountFlagBits::e64; break;
+    //     }
+    //   }
+    // }
 
     ImGui::End();
   }

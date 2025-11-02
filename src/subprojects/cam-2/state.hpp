@@ -4,6 +4,8 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
+#include <glm/glm.hpp>
+
 
 // clang-format off
 namespace state {
@@ -42,7 +44,13 @@ namespace state {
     inline bool primitiveRestartEnable = false;
 
     // Multisample state
-    inline vk::SampleCountFlagBits rasterizationSamples = vk::SampleCountFlagBits::e1;
+    // inline vk::SampleCountFlagBits rasterizationSamples = vk::SampleCountFlagBits::e1;
 
+    //=========================================================
+    // User Input
+    //=========================================================
+
+    inline glm::vec3 cameraPosition = glm::vec3( 0.0f, 0.0f, 0.0f );
+    inline glm::vec2 cameraRotation = glm::vec2( 0.0f, 0.0f );
 
 }  // namespace state

@@ -5,16 +5,11 @@
 #include "helper.hpp"
 #include "init.hpp"
 #include "state.hpp"
-#include "vulkan/vulkan.hpp"
+#include "ui.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
 
 #define VMA_IMPLEMENTATION
-
-#include "imgui.h"
-#include "imgui_impl_glfw.h"
-#include "imgui_impl_vulkan.h"
-#include "ui.hpp"
 
 #include <print>
 #include <vk_mem_alloc.h>
@@ -143,11 +138,11 @@ static void recordCommandBuffer(
   cmd.setPrimitiveTopology( state::primitiveTopology );
   cmd.setPrimitiveRestartEnable( state::primitiveRestartEnable ? VK_TRUE : VK_FALSE );
   cmd.setPolygonModeEXT( state::polygonMode );
-  if(state::polygonMode == vk::PolygonMode::eLine) {
-    cmd.setLineWidth(state::lineWidth);
+  if ( state::polygonMode == vk::PolygonMode::eLine )
+  {
+    cmd.setLineWidth( state::lineWidth );
   }
-  cmd.setRasterizationSamplesEXT( state::rasterizationSamples );
-
+  cmd.setRasterizationSamplesEXT( vk::SampleCountFlagBits::e1 );
 
   vk::SampleMask sampleMask = 0xFFFFFFFF;
   cmd.setSampleMaskEXT( vk::SampleCountFlagBits::e1, sampleMask );
@@ -263,63 +258,22 @@ int main()
     core::SwapchainBundle swapchainBundle =
       core::createSwapchain( physicalDevice, deviceBundle.device, displayBundle.surface, displayBundle.extent, queueFamilyIndices );
 
-
-
     init::raii::Allocator allocator( instance, physicalDevice, deviceBundle.device );
 
     // Create depth resources
     init::raii::DepthResources depthResources( deviceBundle.device, allocator, swapchainBundle.extent );
 
-    //=========================================================
-    // ImGui setup
-    //=========================================================
-
-    std::array<vk::DescriptorPoolSize, 11> imguiPoolSizes = { vk::DescriptorPoolSize{ vk::DescriptorType::eSampler, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eSampledImage, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eUniformTexelBuffer, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageTexelBuffer, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBufferDynamic, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBufferDynamic, 1000 },
-                                                              vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 1000 } };
-
-    vk::DescriptorPoolCreateInfo imguiPoolInfo{};
-    imguiPoolInfo.flags         = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-    imguiPoolInfo.maxSets       = 1000 * static_cast<uint32_t>( imguiPoolSizes.size() );
-    imguiPoolInfo.poolSizeCount = static_cast<uint32_t>( imguiPoolSizes.size() );
-    imguiPoolInfo.pPoolSizes    = imguiPoolSizes.data();
-    vk::raii::DescriptorPool imguiDescriptorPool{ deviceBundle.device, imguiPoolInfo };
-
-    // Initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForVulkan( displayBundle.window, true );
-
-    ImGui_ImplVulkan_InitInfo imguiInitInfo{};
-    imguiInitInfo.Instance            = *instance;
-    imguiInitInfo.PhysicalDevice      = *physicalDevice;
-    imguiInitInfo.Device              = *deviceBundle.device;
-    imguiInitInfo.QueueFamily         = queueFamilyIndices.graphicsFamily.value();
-    imguiInitInfo.Queue               = *deviceBundle.graphicsQueue;
-    imguiInitInfo.DescriptorPool      = *imguiDescriptorPool;
-    imguiInitInfo.RenderPass          = VK_NULL_HANDLE;
-    imguiInitInfo.MinImageCount       = static_cast<uint32_t>( swapchainBundle.images.size() );
-    imguiInitInfo.ImageCount          = static_cast<uint32_t>( swapchainBundle.images.size() );
-    imguiInitInfo.MSAASamples         = VK_SAMPLE_COUNT_1_BIT;
-    imguiInitInfo.UseDynamicRendering = true;
-
-    // Set up dynamic rendering info for ImGui
-    vk::PipelineRenderingCreateInfoKHR pipelineRenderingInfo{};
-    pipelineRenderingInfo.colorAttachmentCount    = 1;
-    pipelineRenderingInfo.pColorAttachmentFormats = &swapchainBundle.imageFormat;
-    pipelineRenderingInfo.depthAttachmentFormat = depthResources.depthFormat;
-
-    imguiInitInfo.PipelineRenderingCreateInfo = pipelineRenderingInfo;
-    ImGui_ImplVulkan_Init( &imguiInitInfo );
+    init::raii::IMGUI imgui(
+      deviceBundle.device,
+      instance,
+      physicalDevice,
+      queueFamilyIndices.graphicsFamily.value(),
+      deviceBundle.graphicsQueue,
+      displayBundle.window,
+      static_cast<uint32_t>( swapchainBundle.images.size() ),
+      static_cast<uint32_t>( swapchainBundle.images.size() ),
+      swapchainBundle.imageFormat,
+      depthResources.depthFormat );
 
     //=========================================================
     // Vulkan setup
@@ -517,9 +471,7 @@ int main()
     }
 
     deviceBundle.device.waitIdle();
-    ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
+
     // Cleanup VMA resources;
     vmaDestroyBuffer( allocator, vertexBuffer, vertexBufferAllocation );
     vmaDestroyBuffer( allocator, instanceBuffer, instanceBufferAllocation );
