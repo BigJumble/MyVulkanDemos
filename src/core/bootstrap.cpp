@@ -280,8 +280,8 @@ namespace core
 
     // Add VkSwapchainPresentModesCreateInfoKHR to inform implementation about swapchain maintenance awareness
     vk::SwapchainPresentModesCreateInfoEXT presentModesInfo{};
-    presentModesInfo.setPresentModeCount( 1 );
-    presentModesInfo.setPPresentModes( &presentMode );
+    presentModesInfo.setPresentModeCount( static_cast<uint32_t>( support.presentModes.size() ) );
+    presentModesInfo.setPPresentModes( support.presentModes.data() );
     // presentModesInfo.setPNext( &presentScalingInfo );
     createInfo.setPNext( &presentModesInfo );
 
