@@ -10,6 +10,8 @@
 // clang-format off
 namespace state {
 
+    inline bool framebufferResized = false;
+
     //=========================================================
     // Vulkan present mode selection
     //=========================================================
@@ -19,10 +21,6 @@ namespace state {
     
     //=========================================================
     // Graphics pipeline
-    //=========================================================
-
-    //=========================================================
-    // Rasterization and Depth/Stencil Test States
     //=========================================================
 
     // Rasterization state
@@ -50,7 +48,14 @@ namespace state {
     // User Input
     //=========================================================
 
+    inline bool fpsMode = false;
     inline glm::vec3 cameraPosition = glm::vec3( 0.0f, 0.0f, 0.0f );
     inline glm::vec2 cameraRotation = glm::vec2( 0.0f, 0.0f );
+    inline float cameraZoom = 1.0f;
+    inline float lastX = 0.0f;
+    inline float lastY = 0.0f;
+    inline bool cursorInWindow = true;
+    inline int windowWidth = 0;
+    inline int windowHeight = 0;
 
 }  // namespace state
