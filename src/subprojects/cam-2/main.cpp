@@ -166,17 +166,17 @@ int main()
 
 
     // Set up callbacks
-    glfwSetKeyCallback( displayBundle.window, input::keyCallback );
-    glfwSetMouseButtonCallback( displayBundle.window, input::mouseButtonCallback );
-    glfwSetCursorPosCallback( displayBundle.window, input::cursorPositionCallback );
-    glfwSetScrollCallback( displayBundle.window, input::scrollCallback );
+    // glfwSetKeyCallback( displayBundle.window, input::keyCallback );
+    // glfwSetMouseButtonCallback( displayBundle.window, input::mouseButtonCallback );
+    input::previousCursorPosCallback = glfwSetCursorPosCallback( displayBundle.window, input::cursorPositionCallback );
+    // glfwSetScrollCallback( displayBundle.window, input::scrollCallback );
     glfwSetFramebufferSizeCallback( displayBundle.window, input::framebufferResizeCallback );
-    glfwSetWindowSizeCallback( displayBundle.window, input::windowSizeCallback );
-    glfwSetCursorEnterCallback( displayBundle.window, input::cursorEnterCallback );
+    // glfwSetWindowSizeCallback( displayBundle.window, input::windowSizeCallback );
+    // glfwSetCursorEnterCallback( displayBundle.window, input::cursorEnterCallback );
 
     // Optional: Set input modes
     // glfwSetInputMode(displayBundle.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // For FPS camera
-    glfwSetInputMode(displayBundle.window, GLFW_STICKY_KEYS, GLFW_TRUE);
+    // glfwSetInputMode(displayBundle.window, GLFW_STICKY_KEYS, GLFW_TRUE);
 
     // std::this_thread::sleep_for(std::chrono::milliseconds(500));
     size_t currentFrame = 0;
