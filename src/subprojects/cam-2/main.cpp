@@ -6,6 +6,7 @@
 #include "init.hpp"
 #include "input.hpp"
 #include "pipelines/basic.hpp"
+#include "pipelines/overlay.hpp"
 #include "state.hpp"
 #include "ui.hpp"
 
@@ -24,7 +25,8 @@ static void recreateSwapchain(
   core::SwapchainBundle &      swapchainBundle,
   core::QueueFamilyIndices &   queueFamilyIndices,
   VmaAllocator &               allocator,
-  init::raii::DepthResources & depthResources )
+  init::raii::DepthResources & depthResources,
+  init::raii::ColorTarget &    offscreenColor )
 {
   int width = 0, height = 0;
   do
@@ -46,6 +48,8 @@ static void recreateSwapchain(
 
   // Recreate depth resources with new extent
   depthResources = init::raii::DepthResources( deviceBundle.device, allocator, swapchainBundle.extent );
+  // Recreate offscreen color target matching swapchain
+  offscreenColor = init::raii::ColorTarget( deviceBundle.device, allocator, swapchainBundle.extent, swapchainBundle.imageFormat );
 
   // No need to recreate per-frame semaphores - they're independent of swapchain
 }
@@ -77,6 +81,8 @@ int main()
 
     // Create depth resources
     init::raii::DepthResources depthResources( deviceBundle.device, allocator, swapchainBundle.extent );
+    // Create offscreen color target to render scene into
+    init::raii::ColorTarget offscreenColor( deviceBundle.device, allocator, swapchainBundle.extent, swapchainBundle.imageFormat );
 
     init::raii::IMGUI imgui(
       deviceBundle.device,
@@ -145,7 +151,7 @@ int main()
     // Frames in flight - independent of swapchain image count
     constexpr size_t MAX_FRAMES_IN_FLIGHT = 2;
 
-    vk::CommandBufferAllocateInfo cmdInfo{ commandPool, vk::CommandBufferLevel::ePrimary, MAX_FRAMES_IN_FLIGHT };
+    vk::CommandBufferAllocateInfo cmdInfo{ commandPool, vk::CommandBufferLevel::ePrimary, static_cast<uint32_t>( MAX_FRAMES_IN_FLIGHT * 2 ) };
     vk::raii::CommandBuffers      cmds{ deviceBundle.device, cmdInfo };
 
     // Create per-frame binary semaphores for image acquisition and presentation
@@ -188,7 +194,7 @@ int main()
       if ( state::framebufferResized )
       {
         state::framebufferResized = false;
-        recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources );
+        recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources, offscreenColor );
         continue;
       }
 
@@ -228,9 +234,11 @@ int main()
         // Only reset the fence after successful image acquisition to prevent deadlock on exception
         deviceBundle.device.resetFences( { *presentFence } );
         // std::println( "imageIndex: {}", imageIndex );
-        // Record command buffer for this frame
-        auto & cmd = cmds[currentFrame];
-        pipelines::basic::recordCommandBuffer( cmd, shaderBundle, swapchainBundle, imageIndex, vertexBuffer, instanceBuffer, instanceCount, depthResources );
+        // Record command buffers for this frame: scene -> offscreen, then blit+imgui -> swapchain
+        auto & cmdScene   = cmds[currentFrame * 2 + 0];
+        auto & cmdOverlay = cmds[currentFrame * 2 + 1];
+        pipelines::basic::recordCommandBufferOffscreen( cmdScene, shaderBundle, offscreenColor, vertexBuffer, instanceBuffer, instanceCount, depthResources );
+        pipelines::overlay::recordCommandBuffer( cmdOverlay, offscreenColor, swapchainBundle, imageIndex, true );
 
         // Submit command buffer waiting on imageAvailable, signal renderFinished and timeline
         // uint64_t renderCompleteValue = ++currentTimelineValue;
@@ -244,12 +252,12 @@ int main()
           // vk::SemaphoreSubmitInfo{}.setSemaphore( *syncSemaphore ).setValue( renderCompleteValue ).setStageMask( vk::PipelineStageFlagBits2::eAllCommands )
         };
 
-        vk::CommandBufferSubmitInfo cmdBufferInfo{};
-        cmdBufferInfo.setCommandBuffer( *cmd );
+        std::array<vk::CommandBufferSubmitInfo, 2> cmdBufferInfos{ vk::CommandBufferSubmitInfo{}.setCommandBuffer( *cmdScene ),
+                                                                  vk::CommandBufferSubmitInfo{}.setCommandBuffer( *cmdOverlay ) };
 
         vk::SubmitInfo2 submitInfo{};
-        submitInfo.setCommandBufferInfoCount( 1 )
-          .setPCommandBufferInfos( &cmdBufferInfo )
+        submitInfo.setCommandBufferInfoCount( cmdBufferInfos.size() )
+          .setPCommandBufferInfos( cmdBufferInfos.data() )
           .setWaitSemaphoreInfos( waitSemaphoreInfos )
           .setSignalSemaphoreInfos( signalSemaphoreInfos );
 
@@ -283,7 +291,7 @@ int main()
       catch ( std::exception const & err )
       {
         isDebug( std::println( "Frame rendering exception (recreating swapchain): {}", err.what() ) );
-        recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources );
+        recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources, offscreenColor );
         continue;
       }
     }

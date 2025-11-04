@@ -1,10 +1,10 @@
 #pragma once
-#include "../data.hpp"
 #include "../init.hpp"
 #include "../state.hpp"
 #include "bootstrap.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
+
 
 namespace pipelines
 {
@@ -12,12 +12,10 @@ namespace pipelines
   {
     inline void recordCommandBuffer(
       vk::raii::CommandBuffer &          cmd,
-      init::raii::ShaderBundle &         shaderBundle,
+      init::raii::ColorTarget const &    srcColor,
       core::SwapchainBundle &            swapchainBundle,
       uint32_t                           imageIndex,
-      VkBuffer                           vertexBuffer,
-      VkBuffer                           instanceBuffer,
-      uint32_t                           instanceCount )
+      bool                               renderImgui = true )
     {
       cmd.reset();
       cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -25,44 +23,58 @@ namespace pipelines
       vk::ImageSubresourceRange subresourceRange{};
       subresourceRange.setAspectMask( vk::ImageAspectFlagBits::eColor ).setLevelCount( 1 ).setLayerCount( 1 );
 
-      vk::ImageMemoryBarrier2 barrier{};
-      barrier.setSrcStageMask( vk::PipelineStageFlagBits2::eColorAttachmentOutput )
+      // Prepare swapchain as blit destination
+      vk::ImageMemoryBarrier2 dstBarrier{};
+      dstBarrier.setSrcStageMask( vk::PipelineStageFlagBits2::eTopOfPipe )
         .setSrcAccessMask( vk::AccessFlagBits2::eNone )
-        .setDstStageMask( vk::PipelineStageFlagBits2::eColorAttachmentOutput )
-        .setDstAccessMask( vk::AccessFlagBits2::eColorAttachmentWrite )
+        .setDstStageMask( vk::PipelineStageFlagBits2::eTransfer )
+        .setDstAccessMask( vk::AccessFlagBits2::eTransferWrite )
         .setOldLayout( vk::ImageLayout::eUndefined )
-        .setNewLayout( vk::ImageLayout::eColorAttachmentOptimal )
+        .setNewLayout( vk::ImageLayout::eTransferDstOptimal )
         .setSrcQueueFamilyIndex( VK_QUEUE_FAMILY_IGNORED )
         .setDstQueueFamilyIndex( VK_QUEUE_FAMILY_IGNORED )
         .setImage( swapchainBundle.images[imageIndex] )
         .setSubresourceRange( subresourceRange );
 
+      // srcColor is already transitioned to eTransferSrcOptimal by basic pass
       vk::DependencyInfo depInfo{};
-      depInfo.setImageMemoryBarrierCount( 1 ).setPImageMemoryBarriers( &barrier );
+      depInfo.setImageMemoryBarrierCount( 1 ).setPImageMemoryBarriers( &dstBarrier );
 
-      // Transition depth image to depth attachment optimal layout
-      vk::ImageSubresourceRange depthSubresourceRange{};
-      depthSubresourceRange.setAspectMask( vk::ImageAspectFlagBits::eDepth ).setLevelCount( 1 ).setLayerCount( 1 );
+      cmd.pipelineBarrier2( depInfo );
 
+      // Blit from offscreen color to swapchain
+      vk::ImageBlit2 blit{};
+      blit.srcOffsets[0] = vk::Offset3D{ 0, 0, 0 };
+      blit.srcOffsets[1] = vk::Offset3D{ static_cast<int32_t>( srcColor.extent.width ), static_cast<int32_t>( srcColor.extent.height ), 1 };
+      blit.dstOffsets[0] = vk::Offset3D{ 0, 0, 0 };
+      blit.dstOffsets[1] = vk::Offset3D{ static_cast<int32_t>( swapchainBundle.extent.width ), static_cast<int32_t>( swapchainBundle.extent.height ), 1 };
+      blit.srcSubresource.setAspectMask( vk::ImageAspectFlagBits::eColor ).setMipLevel( 0 ).setBaseArrayLayer( 0 ).setLayerCount( 1 );
+      blit.dstSubresource.setAspectMask( vk::ImageAspectFlagBits::eColor ).setMipLevel( 0 ).setBaseArrayLayer( 0 ).setLayerCount( 1 );
 
-      vk::DependencyInfo                     imageBarriers{};
-      std::array<vk::ImageMemoryBarrier2, 2> barriers = {  barrier };
-      imageBarriers.setImageMemoryBarrierCount( barriers.size() ).setPImageMemoryBarriers( barriers.data() );
+      vk::BlitImageInfo2 blitInfo{};
+      blitInfo.setSrcImage( srcColor.image )
+        .setSrcImageLayout( vk::ImageLayout::eTransferSrcOptimal )
+        .setDstImage( swapchainBundle.images[imageIndex] )
+        .setDstImageLayout( vk::ImageLayout::eTransferDstOptimal )
+        .setRegions( blit );
+      cmd.blitImage2( blitInfo );
 
-      cmd.pipelineBarrier2( imageBarriers );
-
-      vk::ClearValue clearValue{};
-      clearValue.color = vk::ClearColorValue( std::array<float, 4>{ 0.0f, 0.0f, 0.0f, 0.0f } );
-
-      vk::ClearValue depthClearValue{};
-      depthClearValue.depthStencil = vk::ClearDepthStencilValue{ 1.0f, 0 };
+      // Transition swapchain to color attachment for ImGui
+      dstBarrier.setSrcStageMask( vk::PipelineStageFlagBits2::eTransfer )
+        .setSrcAccessMask( vk::AccessFlagBits2::eTransferWrite )
+        .setDstStageMask( vk::PipelineStageFlagBits2::eColorAttachmentOutput )
+        .setDstAccessMask( vk::AccessFlagBits2::eColorAttachmentWrite )
+        .setOldLayout( vk::ImageLayout::eTransferDstOptimal )
+        .setNewLayout( vk::ImageLayout::eColorAttachmentOptimal );
+      depInfo.setImageMemoryBarrierCount( 1 ).setPImageMemoryBarriers( &dstBarrier );
+      cmd.pipelineBarrier2( depInfo );
 
       vk::RenderingAttachmentInfo colorAttachment{};
       colorAttachment.setImageView( swapchainBundle.imageViews[imageIndex] )
         .setImageLayout( vk::ImageLayout::eColorAttachmentOptimal )
-        .setLoadOp( vk::AttachmentLoadOp::eClear )
+        .setLoadOp( vk::AttachmentLoadOp::eLoad )
         .setStoreOp( vk::AttachmentStoreOp::eStore )
-        .setClearValue( clearValue );
+        .setClearValue( {} );
 
 
 
@@ -77,60 +89,7 @@ namespace pipelines
 
       cmd.beginRendering( renderingInfo );
 
-      std::array<vk::ShaderStageFlagBits, 2> stages  = { vk::ShaderStageFlagBits::eVertex, vk::ShaderStageFlagBits::eFragment };
-      std::array<vk::ShaderEXT, 2>           shaders = { *shaderBundle.getCurrentVertexShader(), *shaderBundle.getCurrentFragmentShader() };
-      cmd.bindShadersEXT( stages, shaders );
-
-      vk::Viewport viewport{ 0, 0, float( swapchainBundle.extent.width ), float( swapchainBundle.extent.height ), 0.0f, 1.0f };
-      vk::Rect2D   scissor{ { 0, 0 }, swapchainBundle.extent };
-      cmd.setViewportWithCount( viewport );
-      cmd.setScissorWithCount( scissor );
-
-      // Set up vertex input state - binding 0 for per-vertex data, binding 1 for per-instance data
-      std::array<vk::VertexInputBindingDescription2EXT, 2> bindingDescs{};
-      bindingDescs[0].setBinding( 0 ).setStride( sizeof( data::Vertex ) ).setInputRate( vk::VertexInputRate::eVertex ).setDivisor( 1 );
-      bindingDescs[1].setBinding( 1 ).setStride( sizeof( data::InstanceData ) ).setInputRate( vk::VertexInputRate::eInstance ).setDivisor( 1 );
-
-      std::array<vk::VertexInputAttributeDescription2EXT, 3> attributeDescs{};
-      // Per-vertex attributes
-      attributeDescs[0].setLocation( 0 ).setBinding( 0 ).setFormat( vk::Format::eR32G32Sfloat ).setOffset( offsetof( data::Vertex, position ) );
-      attributeDescs[1].setLocation( 1 ).setBinding( 0 ).setFormat( vk::Format::eR32G32B32Sfloat ).setOffset( offsetof( data::Vertex, color ) );
-      // Per-instance attribute
-      attributeDescs[2].setLocation( 2 ).setBinding( 1 ).setFormat( vk::Format::eR32G32B32Sfloat ).setOffset( offsetof( data::InstanceData, position ) );
-
-      cmd.setVertexInputEXT( bindingDescs, attributeDescs );
-
-      // Bind vertex and instance buffers
-      vk::DeviceSize offset = 0;
-      cmd.bindVertexBuffers( 0, { vertexBuffer }, { offset } );
-      cmd.bindVertexBuffers( 1, { instanceBuffer }, { offset } );
-
-      cmd.setRasterizerDiscardEnable( VK_FALSE );
-      cmd.setCullMode( vk::CullModeFlagBits::eNone );
-      cmd.setFrontFace( vk::FrontFace::eCounterClockwise );
-      cmd.setDepthTestEnable( VK_FALSE );
-      cmd.setDepthWriteEnable( VK_FALSE );
-      cmd.setDepthCompareOp( vk::CompareOp::eLess );
-      cmd.setDepthBiasEnable( VK_FALSE );
-      cmd.setStencilTestEnable( VK_FALSE );
-      cmd.setPrimitiveTopology( vk::PrimitiveTopology::eTriangleStrip );
-      cmd.setPrimitiveRestartEnable( VK_FALSE );
-      cmd.setPolygonModeEXT( vk::PolygonMode::eFill );
-      cmd.setRasterizationSamplesEXT( vk::SampleCountFlagBits::e1 );
-
-      vk::SampleMask sampleMask = 0xFFFFFFFF;
-      cmd.setSampleMaskEXT( vk::SampleCountFlagBits::e1, sampleMask );
-      cmd.setAlphaToCoverageEnableEXT( VK_FALSE );
-      cmd.setColorBlendEnableEXT( 0, VK_FALSE );
-      cmd.setColorBlendEquationEXT( 0, vk::ColorBlendEquationEXT{} );
-      vk::ColorComponentFlags colorWriteMask =
-        vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
-      cmd.setColorWriteMaskEXT( 0, colorWriteMask );
-
-
-      cmd.draw( 3, instanceCount, 0, 0 );
-
-      if ( !state::fpsMode )
+      if ( renderImgui && !state::fpsMode )
       {
         // Render ImGui on top
         ImGui_ImplVulkan_RenderDrawData( ImGui::GetDrawData(), *cmd );
@@ -138,18 +97,18 @@ namespace pipelines
 
       cmd.endRendering();
 
-      barrier.setSrcStageMask( vk::PipelineStageFlagBits2::eColorAttachmentOutput )
+      dstBarrier.setSrcStageMask( vk::PipelineStageFlagBits2::eColorAttachmentOutput )
         .setSrcAccessMask( vk::AccessFlagBits2::eColorAttachmentWrite )
         .setDstStageMask( vk::PipelineStageFlagBits2::eBottomOfPipe )
         .setDstAccessMask( vk::AccessFlagBits2::eNone )
         .setOldLayout( vk::ImageLayout::eColorAttachmentOptimal )
         .setNewLayout( vk::ImageLayout::ePresentSrcKHR );
 
-      depInfo.setImageMemoryBarrierCount( 1 ).setPImageMemoryBarriers( &barrier );
+      depInfo.setImageMemoryBarrierCount( 1 ).setPImageMemoryBarriers( &dstBarrier );
 
       cmd.pipelineBarrier2( depInfo );
 
       cmd.end();
     }
-  }  // namespace basic
+  }  // namespace overlay
 }  // namespace pipelines

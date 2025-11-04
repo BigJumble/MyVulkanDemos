@@ -248,7 +248,7 @@ namespace core
     createInfo.setImageColorSpace( surfaceFormat.colorSpace );
     createInfo.setImageExtent( extent );
     createInfo.setImageArrayLayers( 1 );
-    createInfo.setImageUsage( vk::ImageUsageFlagBits::eColorAttachment );
+    createInfo.setImageUsage( vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferDst );
 
     // Configure sharing mode based on queue family indices
     uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value(), indices.presentFamily.value() };

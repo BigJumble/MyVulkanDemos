@@ -162,6 +162,101 @@ namespace init
 
 
 
+    struct ColorTarget
+    {
+      VmaAllocator  allocator = nullptr;
+      vk::Image     image;
+      VmaAllocation allocation;
+      vk::Device    device;
+      vk::ImageView imageView;
+      vk::Format    colorFormat = vk::Format::eUndefined;
+      vk::Extent2D  extent{};
+
+      ColorTarget() = default;
+
+      ColorTarget( vk::raii::Device & device, VmaAllocator allocator, vk::Extent2D extent, vk::Format format )
+      {
+        this->allocator   = allocator;
+        this->device      = *device;
+        this->extent      = extent;
+        this->colorFormat = format;
+
+        vk::ImageCreateInfo imageInfo;
+        imageInfo.setImageType( vk::ImageType::e2D )
+          .setExtent( vk::Extent3D{ extent.width, extent.height, 1 } )
+          .setMipLevels( 1 )
+          .setArrayLayers( 1 )
+          .setFormat( colorFormat )
+          .setTiling( vk::ImageTiling::eOptimal )
+          .setUsage( vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc )
+          .setSamples( vk::SampleCountFlagBits::e1 )
+          .setSharingMode( vk::SharingMode::eExclusive );
+
+        VmaAllocationCreateInfo allocInfo = {};
+        allocInfo.usage                   = VMA_MEMORY_USAGE_AUTO;
+        allocInfo.flags                   = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+
+        vmaCreateImage( allocator, reinterpret_cast<const VkImageCreateInfo *>( &imageInfo ), &allocInfo, reinterpret_cast<VkImage *>( &image ), &allocation, nullptr );
+
+        vk::ImageViewCreateInfo viewInfo{};
+        viewInfo.setImage( image )
+          .setViewType( vk::ImageViewType::e2D )
+          .setFormat( colorFormat )
+          .setSubresourceRange( vk::ImageSubresourceRange{}
+                                  .setAspectMask( vk::ImageAspectFlagBits::eColor )
+                                  .setBaseMipLevel( 0 )
+                                  .setLevelCount( 1 )
+                                  .setBaseArrayLayer( 0 )
+                                  .setLayerCount( 1 ) );
+
+        imageView = this->device.createImageView( viewInfo );
+      }
+
+      ColorTarget & operator=( ColorTarget && other ) noexcept
+      {
+        if ( this != &other )
+        {
+          clear();
+          allocator   = other.allocator;
+          device      = other.device;
+          image       = other.image;
+          allocation  = other.allocation;
+          imageView   = other.imageView;
+          colorFormat = other.colorFormat;
+          extent      = other.extent;
+          other.allocator  = nullptr;
+          other.device     = VK_NULL_HANDLE;
+          other.image      = VK_NULL_HANDLE;
+          other.allocation = nullptr;
+          other.imageView  = VK_NULL_HANDLE;
+          other.colorFormat = vk::Format::eUndefined;
+          other.extent      = vk::Extent2D{};
+        }
+        return *this;
+      }
+
+      ColorTarget( const ColorTarget & )            = delete;
+      ColorTarget & operator=( const ColorTarget & ) = delete;
+
+      ~ColorTarget()
+      {
+        clear();
+      }
+
+      void clear()
+      {
+        if ( allocator )
+        {
+          if ( imageView )
+          {
+            device.destroyImageView( imageView );
+            imageView = VK_NULL_HANDLE;
+          }
+          vmaDestroyImage( allocator, image, allocation );
+        }
+      }
+    };
+
     struct ShaderBundle
     {
       vk::raii::PipelineLayout pipelineLayout;
