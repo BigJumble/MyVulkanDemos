@@ -97,4 +97,11 @@ clang-format qtbase5-dev qt6-base-dev
 - [ ] Render sphere terrain using distance fields or marching cubes
 - [ ] Add OpenXR demo
 
+- [ ] verlet 3d physics (compute dual buffering)
+- [ ] verlet 3d constraints for objects (compute / 8x buffering)
+- [ ] marching cubes for mesh for verlet objects (mesh shader)
+- [ ] occupancy-based dual contouring for verlet objects (mesh shader)
+- [ ] do some good lighting (ray tracing)
+- [ ] slap it in VR
+- [ ] Release on steam lol
 
