@@ -103,5 +103,5 @@ clang-format qtbase5-dev qt6-base-dev
 - [ ] occupancy-based dual contouring for verlet objects (mesh shader)
 - [ ] do some good lighting (ray tracing)
 - [ ] slap it in VR
-- [ ] Release on steam lol
+- [ ] Release on steam lol (make dev blogs on YT for exposure)
 
