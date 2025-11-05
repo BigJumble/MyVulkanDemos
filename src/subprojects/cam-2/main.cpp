@@ -1,4 +1,5 @@
 
+#include "GLFW/glfw3.h"
 #include "bootstrap.hpp"
 #include "data.hpp"
 #include "features.hpp"
@@ -9,9 +10,9 @@
 #include "pipelines/overlay.hpp"
 #include "state.hpp"
 #include "ui.hpp"
+#include "vulkan/vulkan.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
-
 
 #define VMA_IMPLEMENTATION
 
@@ -45,7 +46,7 @@ static void recreateSwapchain(
     vk::Extent2D{ static_cast<uint32_t>( width ), static_cast<uint32_t>( height ) },
     queueFamilyIndices,
     &old.swapchain );
-
+  state::screenSize = swapchainBundle.extent;
   // Recreate depth resources with new extent
   depthResources = init::raii::DepthResources( deviceBundle.device, allocator, swapchainBundle.extent );
   // Recreate offscreen color target matching swapchain
@@ -64,32 +65,32 @@ int main()
 
     vk::raii::PhysicalDevices physicalDevices( instance );
 
-    vk::raii::PhysicalDevice physicalDevice = core::selectPhysicalDevice( physicalDevices );
+    state::physicalDevice = core::selectPhysicalDevice( physicalDevices );
 
     core::DisplayBundle displayBundle( instance, init::AppName.data(), vk::Extent2D( 1280, 720 ) );
 
-    state::availablePresentModes = physicalDevice.getSurfacePresentModesKHR( displayBundle.surface );
+    state::availablePresentModes = state::physicalDevice.getSurfacePresentModesKHR( displayBundle.surface );
 
-    core::QueueFamilyIndices queueFamilyIndices = core::findQueueFamilies( physicalDevice, displayBundle.surface );
+    core::QueueFamilyIndices queueFamilyIndices = core::findQueueFamilies( state::physicalDevice, displayBundle.surface );
 
-    core::DeviceBundle deviceBundle = core::createDeviceWithQueues( physicalDevice, queueFamilyIndices, cfg::enabledFeaturesChain, cfg::getRequiredExtensions );
+    state::deviceBundle = core::createDeviceWithQueues( state::physicalDevice, queueFamilyIndices, cfg::enabledFeaturesChain, cfg::getRequiredExtensions );
 
     core::SwapchainBundle swapchainBundle =
-      core::createSwapchain( physicalDevice, deviceBundle.device, displayBundle.surface, displayBundle.extent, queueFamilyIndices );
-
-    init::raii::Allocator allocator( instance, physicalDevice, deviceBundle.device );
+      core::createSwapchain( state::physicalDevice, state::deviceBundle.device, displayBundle.surface, displayBundle.extent, queueFamilyIndices );
+    state::screenSize = swapchainBundle.extent;
+    init::raii::Allocator allocator( instance, state::physicalDevice, state::deviceBundle.device );
 
     // Create depth resources
-    init::raii::DepthResources depthResources( deviceBundle.device, allocator, swapchainBundle.extent );
+    init::raii::DepthResources depthResources( state::deviceBundle.device, allocator, swapchainBundle.extent );
     // Create offscreen color target to render scene into
-    init::raii::ColorTarget offscreenColor( deviceBundle.device, allocator, swapchainBundle.extent, swapchainBundle.imageFormat );
+    init::raii::ColorTarget offscreenColor( state::deviceBundle.device, allocator, swapchainBundle.extent, swapchainBundle.imageFormat );
 
     init::raii::IMGUI imgui(
-      deviceBundle.device,
+      state::deviceBundle.device,
       instance,
-      physicalDevice,
+      state::physicalDevice,
       queueFamilyIndices.graphicsFamily.value(),
-      deviceBundle.graphicsQueue,
+      state::deviceBundle.graphicsQueue,
       displayBundle.window,
       static_cast<uint32_t>( swapchainBundle.images.size() ),
       static_cast<uint32_t>( swapchainBundle.images.size() ),
@@ -101,7 +102,7 @@ int main()
     //=========================================================
 
     init::raii::ShaderBundle shaderBundle(
-      deviceBundle.device,
+      state::deviceBundle.device,
       { "triangle.vert" },
       { "triangle.frag" },
       vk::PushConstantRange{ vk::ShaderStageFlagBits::eVertex, 0, sizeof( data::PushConstants ) } );
@@ -146,13 +147,13 @@ int main()
     memcpy( instanceBufferAllocInfo.pMappedData, data::instancesPos.data(), static_cast<size_t>( instanceBufferSize ) );
 
     vk::CommandPoolCreateInfo cmdPoolInfo{ vk::CommandPoolCreateFlagBits::eResetCommandBuffer, queueFamilyIndices.graphicsFamily.value() };
-    vk::raii::CommandPool     commandPool{ deviceBundle.device, cmdPoolInfo };
+    vk::raii::CommandPool     commandPool{ state::deviceBundle.device, cmdPoolInfo };
 
     // Frames in flight - independent of swapchain image count
     constexpr size_t MAX_FRAMES_IN_FLIGHT = 2;
 
     vk::CommandBufferAllocateInfo cmdInfo{ commandPool, vk::CommandBufferLevel::ePrimary, static_cast<uint32_t>( MAX_FRAMES_IN_FLIGHT * 2 ) };
-    vk::raii::CommandBuffers      cmds{ deviceBundle.device, cmdInfo };
+    vk::raii::CommandBuffers      cmds{ state::deviceBundle.device, cmdInfo };
 
     // Create per-frame binary semaphores for image acquisition and presentation
     std::vector<vk::raii::Semaphore> imageAvailableSemaphores;
@@ -165,15 +166,14 @@ int main()
 
     for ( size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i )
     {
-      imageAvailableSemaphores.emplace_back( deviceBundle.device, vk::SemaphoreCreateInfo{} );
-      renderFinishedSemaphores.emplace_back( deviceBundle.device, vk::SemaphoreCreateInfo{} );
-      presentFences.emplace_back( deviceBundle.device, vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled } );
+      imageAvailableSemaphores.emplace_back( state::deviceBundle.device, vk::SemaphoreCreateInfo{} );
+      renderFinishedSemaphores.emplace_back( state::deviceBundle.device, vk::SemaphoreCreateInfo{} );
+      presentFences.emplace_back( state::deviceBundle.device, vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled } );
     }
 
-
     // Set up callbacks
-    // glfwSetKeyCallback( displayBundle.window, input::keyCallback );
-    // glfwSetMouseButtonCallback( displayBundle.window, input::mouseButtonCallback );
+    glfwSetKeyCallback( displayBundle.window, input::keyCallback );
+    glfwSetMouseButtonCallback( displayBundle.window, input::mouseButtonCallback );
     input::previousCursorPosCallback = glfwSetCursorPosCallback( displayBundle.window, input::cursorPositionCallback );
     // glfwSetScrollCallback( displayBundle.window, input::scrollCallback );
     glfwSetFramebufferSizeCallback( displayBundle.window, input::framebufferResizeCallback );
@@ -181,8 +181,8 @@ int main()
     // glfwSetCursorEnterCallback( displayBundle.window, input::cursorEnterCallback );
 
     // Optional: Set input modes
-    // glfwSetInputMode(displayBundle.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // For FPS camera
-    // glfwSetInputMode(displayBundle.window, GLFW_STICKY_KEYS, GLFW_TRUE);
+    glfwSetInputMode( displayBundle.window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );  // For FPS camera
+    glfwSetInputMode( displayBundle.window, GLFW_STICKY_KEYS, GLFW_TRUE );
 
     // std::this_thread::sleep_for(std::chrono::milliseconds(500));
     size_t currentFrame = 0;
@@ -194,11 +194,12 @@ int main()
       if ( state::framebufferResized )
       {
         state::framebufferResized = false;
-        recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources, offscreenColor );
+        recreateSwapchain(
+          displayBundle, state::physicalDevice, state::deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources, offscreenColor );
         continue;
       }
 
-      if ( !state::fpsMode )
+      if ( !state::fpvMode )
       {
         // Start ImGui frame
         ImGui_ImplVulkan_NewFrame();
@@ -208,6 +209,7 @@ int main()
         ui::renderStatsWindow();
         ui::renderPresentModeWindow();
         ui::renderPipelineStateWindow();
+        ui::logging();
 
         ImGui::Render();
       }
@@ -221,7 +223,7 @@ int main()
 
         // Wait for the presentation fence from previous use of this frame slot
         // Wait for the present fence to be signaled before reusing this frame slot
-        (void)deviceBundle.device.waitForFences( { *presentFence }, VK_TRUE, UINT64_MAX );
+        (void)state::deviceBundle.device.waitForFences( { *presentFence }, VK_TRUE, UINT64_MAX );
 
         // Acquire next swapchain image using the imageAvailable semaphore
         auto acquire = swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailable, nullptr );
@@ -232,7 +234,7 @@ int main()
         uint32_t imageIndex = acquire.value;
 
         // Only reset the fence after successful image acquisition to prevent deadlock on exception
-        deviceBundle.device.resetFences( { *presentFence } );
+        state::deviceBundle.device.resetFences( { *presentFence } );
         // std::println( "imageIndex: {}", imageIndex );
         // Record command buffers for this frame: scene -> offscreen, then blit+imgui -> swapchain
         auto & cmdScene   = cmds[currentFrame * 2 + 0];
@@ -253,7 +255,7 @@ int main()
         };
 
         std::array<vk::CommandBufferSubmitInfo, 2> cmdBufferInfos{ vk::CommandBufferSubmitInfo{}.setCommandBuffer( *cmdScene ),
-                                                                  vk::CommandBufferSubmitInfo{}.setCommandBuffer( *cmdOverlay ) };
+                                                                   vk::CommandBufferSubmitInfo{}.setCommandBuffer( *cmdOverlay ) };
 
         vk::SubmitInfo2 submitInfo{};
         submitInfo.setCommandBufferInfoCount( cmdBufferInfos.size() )
@@ -261,7 +263,7 @@ int main()
           .setWaitSemaphoreInfos( waitSemaphoreInfos )
           .setSignalSemaphoreInfos( signalSemaphoreInfos );
 
-        deviceBundle.graphicsQueue.submit2( submitInfo );
+          state::deviceBundle.graphicsQueue.submit2( submitInfo );
 
         vk::SwapchainPresentModeInfoEXT presentModeInfo{};
         presentModeInfo.setSwapchainCount( 1 );
@@ -279,7 +281,7 @@ int main()
           .setPSwapchains( &*swapchainBundle.swapchain )
           .setPImageIndices( &imageIndex );
 
-        auto presentRes = deviceBundle.graphicsQueue.presentKHR( presentInfo );
+        auto presentRes = state::deviceBundle.graphicsQueue.presentKHR( presentInfo );
 
         if ( presentRes == vk::Result::eSuboptimalKHR || presentRes == vk::Result::eErrorOutOfDateKHR )
         {
@@ -291,12 +293,13 @@ int main()
       catch ( std::exception const & err )
       {
         isDebug( std::println( "Frame rendering exception (recreating swapchain): {}", err.what() ) );
-        recreateSwapchain( displayBundle, physicalDevice, deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources, offscreenColor );
+        recreateSwapchain(
+          displayBundle, state::physicalDevice, state::deviceBundle, swapchainBundle, queueFamilyIndices, allocator.allocator, depthResources, offscreenColor );
         continue;
       }
     }
 
-    deviceBundle.device.waitIdle();
+    state::deviceBundle.device.waitIdle();
 
     // Cleanup VMA resources;
     vmaDestroyBuffer( allocator, vertexBuffer, vertexBufferAllocation );

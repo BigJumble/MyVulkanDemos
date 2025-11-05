@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
-
+#include "bootstrap.hpp"
 #include <glm/glm.hpp>
 
 
@@ -11,7 +11,9 @@
 namespace state {
 
     inline bool framebufferResized = false;
-
+    inline vk::Extent2D screenSize = {0,0};
+    inline vk::raii::PhysicalDevice physicalDevice = nullptr;
+    inline core::DeviceBundle deviceBundle;
     //=========================================================
     // Vulkan present mode selection
     //=========================================================
@@ -48,7 +50,7 @@ namespace state {
     // User Input
     //=========================================================
 
-    inline bool fpsMode = false;
+    inline bool fpvMode = false;
     inline glm::vec3 cameraPosition = glm::vec3( 0.0f, 0.0f, 0.0f );
     inline glm::vec2 cameraRotation = glm::vec2( 0.0f, 0.0f );
     inline float cameraZoom = 1.0f;

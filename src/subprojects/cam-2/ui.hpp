@@ -153,4 +153,11 @@ namespace ui
 
     ImGui::End();
   }
+
+  inline void logging()
+  {
+    ImGui::Begin( "Float Logger" );
+    ImGui::Text( "Logged: X: %.3f, Y: %.3f", state::lastX, state::lastY );
+    ImGui::End();
+  }
 }  // namespace ui

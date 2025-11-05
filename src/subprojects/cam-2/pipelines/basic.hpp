@@ -328,7 +328,7 @@ namespace pipelines
 
       cmd.draw( 3, instanceCount, 0, 0 );
 
-      if ( !state::fpsMode )
+      if ( !state::fpvMode )
       {
         // Render ImGui on top
         ImGui_ImplVulkan_RenderDrawData( ImGui::GetDrawData(), *cmd );
