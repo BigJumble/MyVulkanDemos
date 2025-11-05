@@ -33,7 +33,6 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
-
 #if defined( DEBUG ) || !defined( NDEBUG )
 #  define isDebug( code ) code
 #else
@@ -70,38 +69,18 @@ namespace core
   // ---------------------------------------------------------------------------
   // DisplayBundle (window + surface)
   // ---------------------------------------------------------------------------
+  [[nodiscard]] std::unique_ptr<GLFWwindow, void ( * )( GLFWwindow * )> createWindow( vk::raii::Instance const & instance );
 
-  struct DisplayBundle
+  [[nodiscard]] vk::raii::SurfaceKHR createWindowSurface( const vk::raii::Instance & instance, GLFWwindow * window );
+
+  inline void glfwDestructor( GLFWwindow * w )
   {
-    GLFWwindow *         window = nullptr;
-    vk::raii::SurfaceKHR surface = nullptr;
-
-    DisplayBundle() = default;
-    DisplayBundle( vk::raii::Instance const & instance );
-    ~DisplayBundle();
-
-    DisplayBundle( const DisplayBundle & )             = delete;
-    DisplayBundle & operator=( const DisplayBundle & ) = delete;
-
-    // Move constructor
-    DisplayBundle( DisplayBundle && other ) noexcept
-      : window( other.window ), surface( std::move( other.surface ) )
+    if ( w )
     {
-      other.window = nullptr;
+      glfwDestroyWindow( w );
+      glfwTerminate();
     }
-
-    // Move assignment operator
-    DisplayBundle & operator=( DisplayBundle && other ) noexcept
-    {
-      if ( this != &other )
-      {
-        window           = other.window;
-        surface          = std::move( other.surface );
-        other.window     = nullptr;
-      }
-      return *this;
-    }
-  };
+  }
 
   // ---------------------------------------------------------------------------
   // Queue families
@@ -158,16 +137,7 @@ namespace core
   // Device creation
   // ---------------------------------------------------------------------------
 
-  struct DeviceBundle
-  {
-    vk::raii::Device   device{ nullptr };
-    vk::raii::Queue    graphicsQueue{ nullptr };
-    vk::raii::Queue    presentQueue{ nullptr };
-    vk::raii::Queue    computeQueue{ nullptr };
-    QueueFamilyIndices indices;
-  };
-
-  [[nodiscard]] inline DeviceBundle createDeviceWithQueues(
+  [[nodiscard]] inline vk::raii::Device createDevice(
     const vk::raii::PhysicalDevice &  physicalDevice,
     const QueueFamilyIndices &        indices,
     const void *                      pNextFeatureChain,
@@ -185,15 +155,7 @@ namespace core
     info.setPEnabledExtensionNames( finalExtensions );
     info.setPNext( pNextFeatureChain );
 
-    DeviceBundle bundle{};
-    bundle.indices       = indices;
-    bundle.device        = vk::raii::Device( physicalDevice, info );
-    bundle.graphicsQueue = vk::raii::Queue( bundle.device, indices.graphicsFamily.value(), 0 );
-    bundle.presentQueue  = vk::raii::Queue( bundle.device, indices.presentFamily.value(), 0 );
-    if ( indices.computeFamily )
-      bundle.computeQueue = vk::raii::Queue( bundle.device, indices.computeFamily.value(), 0 );
-
-    return bundle;
+    return vk::raii::Device( physicalDevice, info );
   }
 
   // ---------------------------------------------------------------------------

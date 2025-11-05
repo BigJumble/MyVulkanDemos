@@ -1,9 +1,13 @@
 #include "setup.hpp"
+
+#include "GLFW/glfw3.h"
 #include "state.hpp"
+
+#include <vulkan/vulkan_raii.hpp>
+
 namespace core
 {
-  DisplayBundle::DisplayBundle( vk::raii::Instance const & instance )
-    :  window( nullptr ), surface( nullptr )
+  std::unique_ptr<GLFWwindow, void ( * )( GLFWwindow * )> createWindow( vk::raii::Instance const & instance )
   {
     static std::string lastGlfwError;
     glfwSetErrorCallback(
@@ -13,7 +17,12 @@ namespace core
         std::cerr << "[GLFW] " << lastGlfwError << std::endl;
       } );
 
-    isDebug( std::println( "[DisplayBundle] Initializing GLFW for window: '{}' ({}x{})", global::state::AppName, global::state::screenSize.width, global::state::screenSize.height ) );
+    isDebug(
+      std::println(
+        "[DisplayBundle] Initializing GLFW for window: '{}' ({}x{})",
+        global::state::AppName,
+        global::state::screenSize.width,
+        global::state::screenSize.height ) );
 
     if ( !glfwInit() )
     {
@@ -27,13 +36,19 @@ namespace core
     }
 
     glfwWindowHint( GLFW_CLIENT_API, GLFW_NO_API );
-    window = glfwCreateWindow( global::state::screenSize.width, global::state::screenSize.height, global::state::AppName.data(), nullptr, nullptr );
+    std::unique_ptr<GLFWwindow, void ( * )( GLFWwindow * )> window(
+      glfwCreateWindow( global::state::screenSize.width, global::state::screenSize.height, global::state::AppName.data(), nullptr, nullptr ),
+      core::glfwDestructor );
     if ( !window )
     {
       glfwTerminate();
       throw std::runtime_error( "Failed to create GLFW window!" );
     }
+    return window;
+  }
 
+  vk::raii::SurfaceKHR createWindowSurface( const vk::raii::Instance & instance, GLFWwindow * window )
+  {
     VkSurfaceKHR _surface;
     if ( glfwCreateWindowSurface( *instance, window, nullptr, &_surface ) != VK_SUCCESS )
     {
@@ -41,18 +56,7 @@ namespace core
       glfwTerminate();
       throw std::runtime_error( "Failed to create window surface!" );
     }
-
-    surface = vk::raii::SurfaceKHR( instance, _surface );
+    return vk::raii::SurfaceKHR( instance, _surface );
   }
 
-  DisplayBundle::~DisplayBundle()
-  {
-    if ( window )
-    {
-      glfwDestroyWindow( window );
-      glfwTerminate();
-      window = nullptr;
-    }
-
-  }
 }  // namespace core
