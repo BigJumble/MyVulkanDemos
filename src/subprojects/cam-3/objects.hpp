@@ -1,7 +1,7 @@
 #pragma once
 #define GLFW_INCLUDE_NONE
 #include "setup.hpp"
-
+#include "structs.hpp"
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_raii.hpp>
 
@@ -27,6 +27,11 @@ namespace global
     inline vk::raii::Queue  computeQueue  = nullptr;
 
     inline core::SwapchainBundle swapchainBundle;
+
+    inline core::raii::Allocator allocator;
+
+    inline core::Texture depthTexture;
+    inline core::Texture basicTargetTexture;
 
 
   }  // namespace obj

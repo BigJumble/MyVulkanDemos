@@ -1,20 +1,18 @@
 #pragma once
+#include "../structs.hpp"
 #include "../state.hpp"
-#include "../setup.hpp"
+
+#include "imgui.h"
+#include "imgui_impl_vulkan.h"
 
 #include <vulkan/vulkan_raii.hpp>
-
 
 namespace pipelines
 {
   namespace overlay
   {
     inline void recordCommandBuffer(
-      vk::raii::CommandBuffer &          cmd,
-      core::raii::ColorTarget const &    srcColor,
-      core::SwapchainBundle &            swapchainBundle,
-      uint32_t                           imageIndex,
-      bool                               renderImgui = true )
+      vk::raii::CommandBuffer & cmd, core::Texture const & srcColor, core::SwapchainBundle & swapchainBundle, uint32_t imageIndex, bool renderImgui = true )
     {
       cmd.reset();
       cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -75,16 +73,11 @@ namespace pipelines
         .setStoreOp( vk::AttachmentStoreOp::eStore )
         .setClearValue( {} );
 
-
-
       vk::Rect2D renderArea{};
       renderArea.setExtent( swapchainBundle.extent );
 
       vk::RenderingInfo renderingInfo{};
-      renderingInfo.setRenderArea( renderArea )
-        .setLayerCount( 1 )
-        .setColorAttachmentCount( 1 )
-        .setPColorAttachments( &colorAttachment );
+      renderingInfo.setRenderArea( renderArea ).setLayerCount( 1 ).setColorAttachmentCount( 1 ).setPColorAttachments( &colorAttachment );
 
       cmd.beginRendering( renderingInfo );
 

@@ -1,14 +1,13 @@
 
 #include "GLFW/glfw3.h"
-#include "setup.hpp"
-#include "state.hpp"
 #include "data.hpp"
-
-#include "objects.hpp"
 #include "input.hpp"
+#include "objects.hpp"
 #include "pipelines/basic.hpp"
 #include "pipelines/overlay.hpp"
+#include "setup.hpp"
 #include "state.hpp"
+#include "structs.hpp"
 #include "ui.hpp"
 #include "vulkan/vulkan.hpp"
 
@@ -20,12 +19,7 @@
 #include <vk_mem_alloc.h>
 
 static void recreateSwapchain(
-  vk::raii::PhysicalDevice &   physicalDevice,
-  core::SwapchainBundle &      swapchainBundle,
-  core::QueueFamilyIndices &   queueFamilyIndices,
-  VmaAllocator &               allocator,
-  core::raii::DepthResources & depthResources,
-  core::raii::ColorTarget &    offscreenColor )
+  vk::raii::PhysicalDevice & physicalDevice, core::SwapchainBundle & swapchainBundle, core::QueueFamilyIndices & queueFamilyIndices, VmaAllocator & allocator )
 {
   int width = 0, height = 0;
   do
@@ -46,10 +40,24 @@ static void recreateSwapchain(
     &old.swapchain );
   global::state::screenSize = swapchainBundle.extent;
   // Recreate depth resources with new extent
-  depthResources = core::raii::DepthResources( global::obj::device, allocator, swapchainBundle.extent );
-  // Recreate offscreen color target matching swapchain
-  offscreenColor = core::raii::ColorTarget( global::obj::device, allocator, swapchainBundle.extent, swapchainBundle.imageFormat );
 
+  core::destroyTexture( global::obj::device, global::obj::allocator, global::obj::depthTexture );
+  global::obj::depthTexture = core::createTexture(
+    global::obj::device,
+    global::obj::allocator,
+    global::state::screenSize,
+    vk::Format::eD32Sfloat,
+    vk::ImageUsageFlagBits::eDepthStencilAttachment,
+    vk::ImageAspectFlagBits::eDepth );
+
+  core::destroyTexture( global::obj::device, global::obj::allocator, global::obj::basicTargetTexture );
+  global::obj::basicTargetTexture = core::createTexture(
+    global::obj::device,
+    global::obj::allocator,
+    global::state::screenSize,
+    global::obj::swapchainBundle.imageFormat,
+    vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc,
+    vk::ImageAspectFlagBits::eColor );
   // No need to recreate per-frame semaphores - they're independent of swapchain
 }
 
@@ -64,32 +72,48 @@ int main()
     global::obj::physicalDevice = core::selectPhysicalDevice( global::obj::physicalDevices );
 
     // global::obj::displayBundle = core::DisplayBundle( global::obj::instance);
-    global::obj::window = core::createWindow(global::obj::instance);
-    global::obj::surface = core::createWindowSurface(global::obj::instance, global::obj::window.get());
+    global::obj::window  = core::createWindow( global::obj::instance );
+    global::obj::surface = core::createWindowSurface( global::obj::instance, global::obj::window.get() );
 
     global::state::availablePresentModes = global::obj::physicalDevice.getSurfacePresentModesKHR( global::obj::surface );
 
     global::obj::queueFamilyIndices = core::findQueueFamilies( global::obj::physicalDevice, global::obj::surface );
 
-    global::obj::device = core::createDevice( global::obj::physicalDevice, global::obj::queueFamilyIndices, cfg::enabledFeaturesChain, cfg::getRequiredExtensions );
+    global::obj::device =
+      core::createDevice( global::obj::physicalDevice, global::obj::queueFamilyIndices, cfg::enabledFeaturesChain, cfg::getRequiredExtensions );
 
     global::obj::graphicsQueue = vk::raii::Queue( global::obj::device, global::obj::queueFamilyIndices.graphicsFamily.value(), 0 );
     global::obj::presentQueue  = vk::raii::Queue( global::obj::device, global::obj::queueFamilyIndices.presentFamily.value(), 0 );
-    global::obj::computeQueue = vk::raii::Queue( global::obj::device, global::obj::queueFamilyIndices.computeFamily.value(), 0 );
+    global::obj::computeQueue  = vk::raii::Queue( global::obj::device, global::obj::queueFamilyIndices.computeFamily.value(), 0 );
 
-    
-    global::obj::swapchainBundle =
-      core::createSwapchain( global::obj::physicalDevice, global::obj::device, global::obj::surface, global::state::screenSize, global::obj::queueFamilyIndices );
-   
-    global::state::screenSize =  global::obj::swapchainBundle.extent;
+    global::obj::swapchainBundle = core::createSwapchain(
+      global::obj::physicalDevice, global::obj::device, global::obj::surface, global::state::screenSize, global::obj::queueFamilyIndices );
 
+    global::state::screenSize = global::obj::swapchainBundle.extent;
 
-    core::raii::Allocator allocator( global::obj::instance, global::obj::physicalDevice, global::obj::device );
+    global::obj::allocator = core::raii::Allocator( global::obj::instance, global::obj::physicalDevice, global::obj::device );
 
-    // Create depth resources
-    core::raii::DepthResources depthResources( global::obj::device, allocator,  global::obj::swapchainBundle.extent );
-    // Create offscreen color target to render scene into
-    core::raii::ColorTarget offscreenColor( global::obj::device, allocator,  global::obj::swapchainBundle.extent,  global::obj::swapchainBundle.imageFormat );
+    global::obj::depthTexture = core::createTexture(
+      global::obj::device,
+      global::obj::allocator,
+      global::state::screenSize,
+      vk::Format::eD32Sfloat,
+      vk::ImageUsageFlagBits::eDepthStencilAttachment,
+      vk::ImageAspectFlagBits::eDepth );
+
+    global::obj::basicTargetTexture = core::createTexture(
+      global::obj::device,
+      global::obj::allocator,
+      global::state::screenSize,
+      global::obj::swapchainBundle.imageFormat,
+      vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc,
+      vk::ImageAspectFlagBits::eColor );
+
+    // // Create depth resources
+    // core::raii::DepthResources depthResources( global::obj::device, global::obj::allocator,  global::obj::swapchainBundle.extent );
+    // // Create offscreen color target to render scene into
+    // core::raii::ColorTarget offscreenColor( global::obj::device, global::obj::allocator,  global::obj::swapchainBundle.extent,
+    // global::obj::swapchainBundle.imageFormat );
 
     core::raii::IMGUI imgui(
       global::obj::device,
@@ -98,10 +122,10 @@ int main()
       global::obj::queueFamilyIndices.graphicsFamily.value(),
       global::obj::graphicsQueue,
       global::obj::window.get(),
-      static_cast<uint32_t>(  global::obj::swapchainBundle.images.size() ),
-      static_cast<uint32_t>(  global::obj::swapchainBundle.images.size() ),
+      static_cast<uint32_t>( global::obj::swapchainBundle.images.size() ),
+      static_cast<uint32_t>( global::obj::swapchainBundle.images.size() ),
       global::obj::swapchainBundle.imageFormat,
-      depthResources.depthFormat );
+      global::obj::depthTexture.format );
 
     //=========================================================
     // Vulkan setup
@@ -129,7 +153,7 @@ int main()
     VmaAllocation     vertexBufferAllocation;
     VmaAllocationInfo vertexBufferAllocInfo;
 
-    vmaCreateBuffer( allocator, &bufferInfo, &allocInfo, &vertexBuffer, &vertexBufferAllocation, &vertexBufferAllocInfo );
+    vmaCreateBuffer( global::obj::allocator, &bufferInfo, &allocInfo, &vertexBuffer, &vertexBufferAllocation, &vertexBufferAllocInfo );
 
     // Copy vertex data to buffer (already mapped)
     memcpy( vertexBufferAllocInfo.pMappedData, data::triangleVertices.data(), static_cast<size_t>( bufferSize ) );
@@ -147,7 +171,7 @@ int main()
     VmaAllocation     instanceBufferAllocation;
     VmaAllocationInfo instanceBufferAllocInfo;
 
-    vmaCreateBuffer( allocator, &instanceBufferInfo, &allocInfo, &instanceBuffer, &instanceBufferAllocation, &instanceBufferAllocInfo );
+    vmaCreateBuffer( global::obj::allocator, &instanceBufferInfo, &allocInfo, &instanceBuffer, &instanceBufferAllocation, &instanceBufferAllocInfo );
 
     // Copy instance data to buffer
     memcpy( instanceBufferAllocInfo.pMappedData, data::instancesPos.data(), static_cast<size_t>( instanceBufferSize ) );
@@ -201,7 +225,10 @@ int main()
       {
         global::state::framebufferResized = false;
         recreateSwapchain(
-          global::obj::physicalDevice,  global::obj::swapchainBundle, global::obj::queueFamilyIndices, allocator.allocator, depthResources, offscreenColor );
+          global::obj::physicalDevice,
+          global::obj::swapchainBundle,
+          global::obj::queueFamilyIndices,
+          global::obj::allocator.allocator);
         continue;
       }
 
@@ -232,7 +259,7 @@ int main()
         (void)global::obj::device.waitForFences( { *presentFence }, VK_TRUE, UINT64_MAX );
 
         // Acquire next swapchain image using the imageAvailable semaphore
-        auto acquire =  global::obj::swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailable, nullptr );
+        auto acquire = global::obj::swapchainBundle.swapchain.acquireNextImage( UINT64_MAX, *imageAvailable, nullptr );
         if ( acquire.result == vk::Result::eErrorOutOfDateKHR )
         {
           throw std::runtime_error( "acquire.result: " + std::to_string( static_cast<int>( acquire.result ) ) );
@@ -245,8 +272,9 @@ int main()
         // Record command buffers for this frame: scene -> offscreen, then blit+imgui -> swapchain
         auto & cmdScene   = cmds[currentFrame * 2 + 0];
         auto & cmdOverlay = cmds[currentFrame * 2 + 1];
-        pipelines::basic::recordCommandBufferOffscreen( cmdScene, shaderBundle, offscreenColor, vertexBuffer, instanceBuffer, instanceCount, depthResources );
-        pipelines::overlay::recordCommandBuffer( cmdOverlay, offscreenColor,  global::obj::swapchainBundle, imageIndex, true );
+        pipelines::basic::recordCommandBufferOffscreen(
+          cmdScene, shaderBundle, global::obj::basicTargetTexture, vertexBuffer, instanceBuffer, instanceCount, global::obj::depthTexture );
+        pipelines::overlay::recordCommandBuffer( cmdOverlay, global::obj::basicTargetTexture, global::obj::swapchainBundle, imageIndex, true );
 
         // Submit command buffer waiting on imageAvailable, signal renderFinished and timeline
         // uint64_t renderCompleteValue = ++currentTimelineValue;
@@ -269,7 +297,7 @@ int main()
           .setWaitSemaphoreInfos( waitSemaphoreInfos )
           .setSignalSemaphoreInfos( signalSemaphoreInfos );
 
-          global::obj::graphicsQueue.submit2( submitInfo );
+        global::obj::graphicsQueue.submit2( submitInfo );
 
         vk::SwapchainPresentModeInfoEXT presentModeInfo{};
         presentModeInfo.setSwapchainCount( 1 );
@@ -284,7 +312,7 @@ int main()
           .setWaitSemaphoreCount( 1 )
           .setPWaitSemaphores( &*renderFinished )
           .setSwapchainCount( 1 )
-          .setPSwapchains( &* global::obj::swapchainBundle.swapchain )
+          .setPSwapchains( &*global::obj::swapchainBundle.swapchain )
           .setPImageIndices( &imageIndex );
 
         auto presentRes = global::obj::graphicsQueue.presentKHR( presentInfo );
@@ -300,16 +328,21 @@ int main()
       {
         isDebug( std::println( "Frame rendering exception (recreating swapchain): {}", err.what() ) );
         recreateSwapchain(
-           global::obj::physicalDevice, global::obj::swapchainBundle, global::obj::queueFamilyIndices, allocator.allocator, depthResources, offscreenColor );
+          global::obj::physicalDevice,
+          global::obj::swapchainBundle,
+          global::obj::queueFamilyIndices,
+          global::obj::allocator.allocator);
         continue;
       }
     }
 
     global::obj::device.waitIdle();
 
+    core::destroyTexture( global::obj::device, global::obj::allocator, global::obj::depthTexture );
+    core::destroyTexture( global::obj::device, global::obj::allocator, global::obj::basicTargetTexture );
     // Cleanup VMA resources;
-    vmaDestroyBuffer( allocator, vertexBuffer, vertexBufferAllocation );
-    vmaDestroyBuffer( allocator, instanceBuffer, instanceBufferAllocation );
+    vmaDestroyBuffer( global::obj::allocator, vertexBuffer, vertexBufferAllocation );
+    vmaDestroyBuffer( global::obj::allocator, instanceBuffer, instanceBufferAllocation );
     // vmaDestroyAllocator( allocator );
   }
 

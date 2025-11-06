@@ -1,11 +1,11 @@
 #pragma once
 
 #include "state.hpp"
+#include "structs.hpp"
 
 #include <fstream>
 #include <iostream>
 #include <limits>
-#include <optional>
 #include <print>
 #include <set>
 #include <stdexcept>
@@ -13,7 +13,8 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
-#define GLFW_INCLUDE_NONE
+
+#define GLFW_INCLUDE_VULKAN
 #include "features.hpp"
 #include "helper.hpp"
 
@@ -31,7 +32,6 @@
 
 #include <string>
 #include <vector>
-#include <vulkan/vulkan_raii.hpp>
 
 #if defined( DEBUG ) || !defined( NDEBUG )
 #  define isDebug( code ) code
@@ -86,18 +86,6 @@ namespace core
   // Queue families
   // ---------------------------------------------------------------------------
 
-  struct QueueFamilyIndices
-  {
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
-    std::optional<uint32_t> computeFamily;
-
-    [[nodiscard]] inline bool isComplete() const
-    {
-      return graphicsFamily && presentFamily && computeFamily;
-    }
-  };
-
   [[nodiscard]] inline QueueFamilyIndices findQueueFamilies( const vk::raii::PhysicalDevice & physicalDevice, const vk::raii::SurfaceKHR & surface )
   {
     QueueFamilyIndices indices;
@@ -123,7 +111,7 @@ namespace core
         indices.computeFamily = i;
     }
 
-    if ( !indices.isComplete() )
+    if ( !( indices.graphicsFamily && indices.presentFamily && indices.computeFamily ) )
       throw std::runtime_error( "Required queue families not found." );
 
     isDebug( std::println( "Graphics Queue Family Index: {}", indices.graphicsFamily.value() ); );
@@ -162,13 +150,6 @@ namespace core
   // Swapchain support and creation
   // ---------------------------------------------------------------------------
 
-  struct SwapchainSupportDetails
-  {
-    vk::SurfaceCapabilitiesKHR        capabilities;
-    std::vector<vk::SurfaceFormatKHR> formats;
-    std::vector<vk::PresentModeKHR>   presentModes;
-  };
-
   [[nodiscard]] inline SwapchainSupportDetails querySwapchainSupport( const vk::raii::PhysicalDevice & physicalDevice, const vk::raii::SurfaceKHR & surface )
   {
     return { physicalDevice.getSurfaceCapabilitiesKHR( *surface ),
@@ -202,15 +183,6 @@ namespace core
     actual.height       = std::clamp( actual.height, caps.minImageExtent.height, caps.maxImageExtent.height );
     return actual;
   }
-
-  struct SwapchainBundle
-  {
-    vk::raii::SwapchainKHR           swapchain{ nullptr };
-    vk::Format                       imageFormat{ vk::Format::eUndefined };
-    vk::Extent2D                     extent{};
-    std::vector<vk::Image>           images;
-    std::vector<vk::raii::ImageView> imageViews;
-  };
 
   [[nodiscard]] inline SwapchainBundle createSwapchain(
     const vk::raii::PhysicalDevice & physicalDevice,
@@ -315,6 +287,115 @@ namespace core
 
   inline vk::InstanceCreateInfo createInfo = vk::InstanceCreateInfo( {}, &applicationInfo, {}, cfg::InstanceExtensions );
 
+
+
+  // Creates a core::Texture given the image specs. Allocates memory and creates image, image view, and default sampler.
+  // Parameters:
+  //   device - logical device used for image/image view/sampler creation
+  //   allocator - VMA allocator for image allocation
+  //   extent - size of the texture
+  //   format - vk::Format for the image
+  //   usage - usage flags for image creation (e.g., sampled, transfer, etc)
+  //   aspectMask - typically vk::ImageAspectFlagBits::eColor
+  // Returns:
+  //   Populated core::Texture struct
+  inline core::Texture createTexture(
+    const vk::Device& device,
+    VmaAllocator allocator,
+    vk::Extent2D extent,
+    vk::Format format,
+    vk::ImageUsageFlags usage,
+    vk::ImageAspectFlags aspectMask
+  )
+  {
+    core::Texture texture;
+    texture.format = format;
+    texture.extent = extent;
+
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width = extent.width;
+    imageInfo.extent.height = extent.height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = static_cast<VkFormat>(format);
+    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = static_cast<VkImageUsageFlags>(usage);
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+
+    VkImage vkImage = VK_NULL_HANDLE;
+    VmaAllocation allocation = nullptr;
+    vmaCreateImage(allocator, &imageInfo, &allocInfo, &vkImage, &allocation, nullptr);
+    texture.image = vkImage;
+    texture.allocation = allocation;
+
+    // Create image view
+    vk::ImageViewCreateInfo viewInfo{};
+    viewInfo.setImage(texture.image)
+      .setViewType(vk::ImageViewType::e2D)
+      .setFormat(format)
+      .setComponents({})
+      .setSubresourceRange({ aspectMask, 0, 1, 0, 1 });
+    texture.imageView = vk::ImageView(device.createImageView(viewInfo));
+
+    // Create sampler (default settings, linear filtering, repeat)
+    vk::SamplerCreateInfo samplerInfo{};
+    samplerInfo.setMagFilter(vk::Filter::eLinear)
+               .setMinFilter(vk::Filter::eLinear)
+               .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+               .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+               .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+               .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+               .setAnisotropyEnable(VK_FALSE)
+               .setMaxAnisotropy(1.0f)
+               .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
+               .setUnnormalizedCoordinates(VK_FALSE);
+    texture.sampler = vk::Sampler(device.createSampler(samplerInfo));
+
+    return texture;
+  }
+
+  // Destroys all Vulkan and VMA resources of a core::Texture.
+  // Parameters:
+  //   device    - logical device for destroying image view and sampler
+  //   allocator - VMA allocator for destroying image and memory
+  //   texture   - texture object to destroy (its members are reset)
+  inline void destroyTexture(
+    const vk::Device& device,
+    VmaAllocator allocator,
+    core::Texture& texture
+  )
+  {
+    if (texture.sampler) {
+      device.destroySampler(texture.sampler, nullptr);
+      texture.sampler = VK_NULL_HANDLE;
+    }
+
+    if (texture.imageView) {
+      device.destroyImageView(texture.imageView, nullptr);
+      texture.imageView = VK_NULL_HANDLE;
+    }
+
+    if (texture.image && texture.allocation) {
+      vmaDestroyImage(allocator, texture.image, texture.allocation);
+      texture.image = VK_NULL_HANDLE;
+      texture.allocation = nullptr;
+    }
+
+    texture.format = vk::Format();
+    texture.extent = vk::Extent2D();
+  }
+
+
+
   namespace raii
   {
 
@@ -322,6 +403,10 @@ namespace core
     {
       VmaAllocator allocator = nullptr;
 
+      // Default constructor
+      Allocator() = default;
+
+      // Normal constructor
       Allocator( const vk::raii::Instance & instance, const vk::raii::PhysicalDevice & physicalDevice, const vk::raii::Device & device )
       {
         VmaAllocatorCreateInfo allocatorInfo = {};
@@ -332,6 +417,29 @@ namespace core
 
         vmaCreateAllocator( &allocatorInfo, &allocator );
       }
+
+      // Move constructor
+      Allocator( Allocator&& other ) noexcept
+      {
+        allocator = other.allocator;
+        other.allocator = nullptr;
+      }
+
+      // Move assignment operator
+      Allocator& operator=( Allocator&& other ) noexcept
+      {
+        if ( this != &other )
+        {
+          clear();
+          allocator = other.allocator;
+          other.allocator = nullptr;
+        }
+        return *this;
+      }
+
+      // Delete copy constructor and copy assignment operator
+      Allocator(const Allocator&) = delete;
+      Allocator& operator=(const Allocator&) = delete;
 
       operator VmaAllocator() const
       {
@@ -349,198 +457,6 @@ namespace core
         {
           vmaDestroyAllocator( allocator );
           allocator = nullptr;
-        }
-      }
-    };
-
-    struct DepthResources
-    {
-      VmaAllocator  allocator = nullptr;
-      vk::Image     image;
-      VmaAllocation allocation;
-      vk::Device    device;
-      vk::ImageView imageView;
-      vk::Format    depthFormat = vk::Format::eD32Sfloat;
-
-      DepthResources( vk::raii::Device & device, VmaAllocator allocator, vk::Extent2D extent )
-      {
-        this->allocator = allocator;
-        this->device    = *device;
-
-        vk::ImageCreateInfo imageInfo;
-        imageInfo.setImageType( vk::ImageType::e2D )
-          .setExtent( vk::Extent3D{ extent.width, extent.height, 1 } )
-          .setMipLevels( 1 )
-          .setArrayLayers( 1 )
-          .setFormat( depthFormat )
-          .setTiling( vk::ImageTiling::eOptimal )
-          .setUsage( vk::ImageUsageFlagBits::eDepthStencilAttachment )
-          .setSamples( vk::SampleCountFlagBits::e1 )
-          .setSharingMode( vk::SharingMode::eExclusive );
-
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.usage                   = VMA_MEMORY_USAGE_AUTO;
-        allocInfo.flags                   = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-
-        vmaCreateImage(
-          allocator, reinterpret_cast<const VkImageCreateInfo *>( &imageInfo ), &allocInfo, reinterpret_cast<VkImage *>( &image ), &allocation, nullptr );
-
-        vk::ImageViewCreateInfo viewInfo{};
-        viewInfo.setImage( image )
-          .setViewType( vk::ImageViewType::e2D )
-          .setFormat( depthFormat )
-          .setSubresourceRange(
-            vk::ImageSubresourceRange{}
-              .setAspectMask( vk::ImageAspectFlagBits::eDepth )
-              .setBaseMipLevel( 0 )
-              .setLevelCount( 1 )
-              .setBaseArrayLayer( 0 )
-              .setLayerCount( 1 ) );
-
-        imageView = this->device.createImageView( viewInfo );
-      }
-
-      // Add move assignment operator
-      DepthResources & operator=( DepthResources && other ) noexcept
-      {
-        if ( this != &other )
-        {
-          // Clean up current resources
-          clear();
-
-          // Move from other
-          allocator  = other.allocator;
-          device     = other.device;
-          image      = other.image;
-          allocation = other.allocation;
-          imageView  = other.imageView;
-
-          // Reset other
-          other.allocator  = nullptr;
-          other.device     = VK_NULL_HANDLE;
-          other.image      = VK_NULL_HANDLE;
-          other.allocation = nullptr;
-          other.imageView  = VK_NULL_HANDLE;
-        }
-        return *this;
-      }
-
-      // Delete copy operations
-      DepthResources( const DepthResources & )             = delete;
-      DepthResources & operator=( const DepthResources & ) = delete;
-
-      ~DepthResources()
-      {
-        clear();
-      }
-
-      void clear()
-      {
-        if ( allocator )
-        {
-          if ( imageView )
-          {
-            device.destroyImageView( imageView );
-            imageView = VK_NULL_HANDLE;
-          }
-          vmaDestroyImage( allocator, image, allocation );
-        }
-      }
-    };
-
-    struct ColorTarget
-    {
-      VmaAllocator  allocator = nullptr;
-      vk::Image     image;
-      VmaAllocation allocation;
-      vk::Device    device;
-      vk::ImageView imageView;
-      vk::Format    colorFormat = vk::Format::eUndefined;
-      vk::Extent2D  extent{};
-
-      ColorTarget() = default;
-
-      ColorTarget( vk::raii::Device & device, VmaAllocator allocator, vk::Extent2D extent, vk::Format format )
-      {
-        this->allocator   = allocator;
-        this->device      = *device;
-        this->extent      = extent;
-        this->colorFormat = format;
-
-        vk::ImageCreateInfo imageInfo;
-        imageInfo.setImageType( vk::ImageType::e2D )
-          .setExtent( vk::Extent3D{ extent.width, extent.height, 1 } )
-          .setMipLevels( 1 )
-          .setArrayLayers( 1 )
-          .setFormat( colorFormat )
-          .setTiling( vk::ImageTiling::eOptimal )
-          .setUsage( vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc )
-          .setSamples( vk::SampleCountFlagBits::e1 )
-          .setSharingMode( vk::SharingMode::eExclusive );
-
-        VmaAllocationCreateInfo allocInfo = {};
-        allocInfo.usage                   = VMA_MEMORY_USAGE_AUTO;
-        allocInfo.flags                   = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-
-        vmaCreateImage(
-          allocator, reinterpret_cast<const VkImageCreateInfo *>( &imageInfo ), &allocInfo, reinterpret_cast<VkImage *>( &image ), &allocation, nullptr );
-
-        vk::ImageViewCreateInfo viewInfo{};
-        viewInfo.setImage( image )
-          .setViewType( vk::ImageViewType::e2D )
-          .setFormat( colorFormat )
-          .setSubresourceRange(
-            vk::ImageSubresourceRange{}
-              .setAspectMask( vk::ImageAspectFlagBits::eColor )
-              .setBaseMipLevel( 0 )
-              .setLevelCount( 1 )
-              .setBaseArrayLayer( 0 )
-              .setLayerCount( 1 ) );
-
-        imageView = this->device.createImageView( viewInfo );
-      }
-
-      ColorTarget & operator=( ColorTarget && other ) noexcept
-      {
-        if ( this != &other )
-        {
-          clear();
-          allocator         = other.allocator;
-          device            = other.device;
-          image             = other.image;
-          allocation        = other.allocation;
-          imageView         = other.imageView;
-          colorFormat       = other.colorFormat;
-          extent            = other.extent;
-          other.allocator   = nullptr;
-          other.device      = VK_NULL_HANDLE;
-          other.image       = VK_NULL_HANDLE;
-          other.allocation  = nullptr;
-          other.imageView   = VK_NULL_HANDLE;
-          other.colorFormat = vk::Format::eUndefined;
-          other.extent      = vk::Extent2D{};
-        }
-        return *this;
-      }
-
-      ColorTarget( const ColorTarget & )             = delete;
-      ColorTarget & operator=( const ColorTarget & ) = delete;
-
-      ~ColorTarget()
-      {
-        clear();
-      }
-
-      void clear()
-      {
-        if ( allocator )
-        {
-          if ( imageView )
-          {
-            device.destroyImageView( imageView );
-            imageView = VK_NULL_HANDLE;
-          }
-          vmaDestroyImage( allocator, image, allocation );
         }
       }
     };

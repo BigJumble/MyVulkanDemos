@@ -1,7 +1,7 @@
 #pragma once
 #include "../data.hpp"
-#include "../state.hpp"
 #include "../setup.hpp"
+#include "../state.hpp"
 
 #include <vulkan/vulkan_raii.hpp>
 
@@ -10,13 +10,13 @@ namespace pipelines
   namespace basic
   {
     inline void recordCommandBufferOffscreen(
-      vk::raii::CommandBuffer &          cmd,
-      core::raii::ShaderBundle &         shaderBundle,
-      core::raii::ColorTarget const &    colorTarget,
-      VkBuffer                           vertexBuffer,
-      VkBuffer                           instanceBuffer,
-      uint32_t                           instanceCount,
-      core::raii::DepthResources const & depthResources )
+      vk::raii::CommandBuffer &  cmd,
+      core::raii::ShaderBundle & shaderBundle,
+      core::Texture const &      colorTarget,
+      VkBuffer                   vertexBuffer,
+      VkBuffer                   instanceBuffer,
+      uint32_t                   instanceCount,
+      core::Texture const &      depthResources )
     {
       cmd.reset();
       cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -53,7 +53,7 @@ namespace pipelines
         .setSubresourceRange( depthSubresourceRange );
 
       std::array<vk::ImageMemoryBarrier2, 2> barriers = { depthBarrier, colorBarrier };
-      vk::DependencyInfo                      depInfo{};
+      vk::DependencyInfo                     depInfo{};
       depInfo.setImageMemoryBarrierCount( barriers.size() ).setPImageMemoryBarriers( barriers.data() );
       cmd.pipelineBarrier2( depInfo );
 
@@ -138,7 +138,7 @@ namespace pipelines
         vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
       cmd.setColorWriteMaskEXT( 0, colorWriteMask );
 
-      float     t = static_cast<float>( glfwGetTime() );
+      float     t            = static_cast<float>( glfwGetTime() );
       glm::vec3 cameraPos    = glm::vec3( std::sin( t ) * 3.0f, 2.0f, std::cos( t ) * 3.0f );
       glm::vec3 cameraTarget = glm::vec3( 0.0f, 0.0f, 0.0f );
       glm::vec3 cameraUp     = glm::vec3( 0.0f, 1.0f, 0.0f );
@@ -170,14 +170,14 @@ namespace pipelines
     }
 
     inline void recordCommandBuffer(
-      vk::raii::CommandBuffer &          cmd,
-      core::raii::ShaderBundle &         shaderBundle,
-      core::SwapchainBundle &            swapchainBundle,
-      uint32_t                           imageIndex,
-      VkBuffer                           vertexBuffer,
-      VkBuffer                           instanceBuffer,
-      uint32_t                           instanceCount,
-      core::raii::DepthResources const & depthResources )
+      vk::raii::CommandBuffer &  cmd,
+      core::raii::ShaderBundle & shaderBundle,
+      core::SwapchainBundle &    swapchainBundle,
+      uint32_t                   imageIndex,
+      VkBuffer                   vertexBuffer,
+      VkBuffer                   instanceBuffer,
+      uint32_t                   instanceCount,
+      core::Texture const &      depthResources )
     {
       cmd.reset();
       cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
