@@ -137,15 +137,25 @@ namespace pipelines
       vk::ColorComponentFlags colorWriteMask =
         vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
       cmd.setColorWriteMaskEXT( 0, colorWriteMask );
+      // Use user-controlled camera position and rotation from global::state
+      glm::vec3 cameraPos = global::state::cameraPosition;
 
-      float     t            = static_cast<float>( glfwGetTime() );
-      glm::vec3 cameraPos    = glm::vec3( std::sin( t ) * 3.0f, 2.0f, std::cos( t ) * 3.0f );
-      glm::vec3 cameraTarget = glm::vec3( 0.0f, 0.0f, 0.0f );
-      glm::vec3 cameraUp     = glm::vec3( 0.0f, 1.0f, 0.0f );
-      glm::mat4 view         = glm::lookAt( cameraPos, cameraTarget, cameraUp );
+      // Build view direction from rotation (yaw/pitch in radians)
+      float yaw   = global::state::cameraRotation.x;
+      float pitch = global::state::cameraRotation.y;
 
-      float     aspect = float( colorTarget.extent.width ) / float( colorTarget.extent.height );
-      glm::mat4 proj   = glm::perspective( glm::radians( 45.0f ), aspect, 0.1f, 10000.0f );
+      glm::vec3 direction;
+      direction.x = std::cos(pitch) * std::sin(yaw);
+      direction.y = std::sin(pitch);
+      direction.z = std::cos(pitch) * std::cos(yaw);
+
+      glm::vec3 cameraTarget = cameraPos + glm::normalize(direction);
+      glm::vec3 cameraUp     = glm::vec3(0.0f, 1.0f, 0.0f);
+
+      glm::mat4 view = glm::lookAt(cameraPos, cameraTarget, cameraUp);
+
+      float aspect = float(colorTarget.extent.width) / float(colorTarget.extent.height);
+      glm::mat4 proj = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10000.0f);
       proj[1][1] *= -1;
 
       data::PushConstants pc{ view, proj };

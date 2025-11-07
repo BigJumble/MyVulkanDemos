@@ -1,7 +1,7 @@
 #pragma once
 #include "imgui.h"
 #include "state.hpp"
-
+#include "input.hpp"
 #include <string>
 #include <vector>
 
@@ -157,7 +157,8 @@ namespace ui
   inline void logging()
   {
     ImGui::Begin( "Float Logger" );
-    ImGui::Text( "Logged: X: %.3f, Y: %.3f", global::state::lastX, global::state::lastY );
+    ImGui::Text( "Logged: X: %.3f, Y: %.3f", input::lastX, input::lastY );
+    ImGui::Text( "Logged: X: %.3f, Y: %.3f", input::virtualxPos, input::virtualyPos );
     ImGui::End();
   }
 }  // namespace ui

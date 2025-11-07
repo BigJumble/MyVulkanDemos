@@ -13,6 +13,8 @@ namespace global{
         inline constexpr std::string_view AppName    = "MyApp";
         inline constexpr std::string_view EngineName = "MyEngine";
         
+        constexpr size_t MAX_FRAMES_IN_FLIGHT = 2;
+        
         inline bool framebufferResized = false;
         inline vk::Extent2D screenSize = {1280,720};
         // inline vk::raii::PhysicalDevice physicalDevice = nullptr;
@@ -57,11 +59,5 @@ namespace global{
         inline glm::vec3 cameraPosition = glm::vec3( 0.0f, 0.0f, 0.0f );
         inline glm::vec2 cameraRotation = glm::vec2( 0.0f, 0.0f );
         inline float cameraZoom = 1.0f;
-        inline float lastX = 0.0f;
-        inline float lastY = 0.0f;
-        inline bool cursorInWindow = true;
-        inline int windowWidth = 0;
-        inline int windowHeight = 0;
-
     }  // namespace state
 }

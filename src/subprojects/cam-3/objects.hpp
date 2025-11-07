@@ -4,6 +4,7 @@
 #include "structs.hpp"
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_raii.hpp>
+#include <vector>
 
 // clang-format on
 
@@ -16,7 +17,7 @@ namespace global
     inline vk::raii::PhysicalDevices physicalDevices = nullptr;
     inline vk::raii::PhysicalDevice  physicalDevice  = nullptr;
 
-    inline std::unique_ptr<GLFWwindow, void (*)(GLFWwindow *)> window{nullptr, core::glfwDestructor};
+    inline core::raii::Window window;
     inline vk::raii::SurfaceKHR surface = nullptr;
 
     inline core::QueueFamilyIndices queueFamilyIndices;
@@ -32,6 +33,19 @@ namespace global
 
     inline core::Texture depthTexture;
     inline core::Texture basicTargetTexture;
+
+    inline vk::raii::CommandPool commandPool = nullptr;
+
+    inline std::vector<core::FrameInFlight> frames;
+
+    // Separate command buffers from frames-in-flight; singletons per slot
+    inline vk::raii::CommandBuffers cmdScene = nullptr;
+    inline vk::raii::CommandBuffers cmdOverlay = nullptr;
+
+    inline core::Buffer vertexBuffer;
+    inline core::Buffer instanceBuffer;
+
+    
 
 
   }  // namespace obj

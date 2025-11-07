@@ -3,6 +3,7 @@
 #include "state.hpp"
 #include "structs.hpp"
 
+
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -17,6 +18,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include "features.hpp"
 #include "helper.hpp"
+
 
 #include <GLFW/glfw3.h>
 #include <entt/entt.hpp>
@@ -393,11 +395,68 @@ namespace core
     texture.format = vk::Format();
     texture.extent = vk::Extent2D();
   }
-
-
-
   namespace raii
   {
+
+    struct Window
+    {
+      GLFWwindow* window = nullptr;
+
+      // Default constructor
+      Window() = default;
+
+      Window(vk::raii::Instance const & instance);
+
+      // Construct from raw GLFWwindow*
+      explicit Window(GLFWwindow* w)
+        : window(w)
+      {}
+
+      // Move constructor
+      Window(Window&& other) noexcept
+        : window(other.window)
+      {
+        other.window = nullptr;
+      }
+
+      // Move assignment operator
+      Window& operator=(Window&& other) noexcept
+      {
+        if (this != &other)
+        {
+          reset();
+          window = other.window;
+          other.window = nullptr;
+        }
+        return *this;
+      }
+
+      // Delete copy constructor and copy assignment
+      Window(const Window&) = delete;
+      Window& operator=(const Window&) = delete;
+
+      // Destroy window, if owned
+      void reset()
+      {
+        if (window)
+        {
+          glfwDestroyWindow(window);
+          glfwTerminate();
+          window = nullptr;
+        }
+      }
+
+      // Get underlying pointer
+      GLFWwindow* get() const { return window; }
+
+      // Convenience conversion
+      operator GLFWwindow*() const { return window; }
+
+      ~Window()
+      {
+        reset();
+      }
+    };
 
     struct Allocator
     {
@@ -576,7 +635,9 @@ namespace core
 
     struct IMGUI
     {
+      
       vk::raii::DescriptorPool descriptorPool;
+
 
       IMGUI(
         vk::raii::Device const &         device,
@@ -665,5 +726,61 @@ namespace core
       }
     };
   }  // namespace raii
+
+  // ---------------------------------------------------------------------------
+  // Swapchain recreation using global singletons
+  // ---------------------------------------------------------------------------
+  inline void recreateSwapchain(
+    vk::raii::Device& device,
+    vk::raii::PhysicalDevice& physicalDevice,
+    vk::raii::SurfaceKHR& surface,
+    core::QueueFamilyIndices& queueFamilyIndices,
+    core::SwapchainBundle& swapchainBundle,
+    vk::Extent2D& screenSize,
+    VmaAllocator allocator,
+    core::Texture& depthTexture,
+    core::Texture& basicTargetTexture,
+    GLFWwindow* window
+  )
+  {
+    int width = 0, height = 0;
+    do
+    {
+      glfwGetFramebufferSize(window, &width, &height);
+      glfwPollEvents();
+    } while (width == 0 || height == 0);
+
+    device.waitIdle();
+
+    core::SwapchainBundle old = std::move(swapchainBundle);
+    swapchainBundle = core::createSwapchain(
+      physicalDevice,
+      device,
+      surface,
+      vk::Extent2D{ static_cast<uint32_t>(width), static_cast<uint32_t>(height) },
+      queueFamilyIndices,
+      &old.swapchain);
+
+    screenSize = swapchainBundle.extent;
+
+    // Recreate depth and offscreen color targets
+    core::destroyTexture(device, allocator, depthTexture);
+    depthTexture = core::createTexture(
+      device,
+      allocator,
+      screenSize,
+      vk::Format::eD32Sfloat,
+      vk::ImageUsageFlagBits::eDepthStencilAttachment,
+      vk::ImageAspectFlagBits::eDepth);
+
+    core::destroyTexture(device, allocator, basicTargetTexture);
+    basicTargetTexture = core::createTexture(
+      device,
+      allocator,
+      screenSize,
+      swapchainBundle.imageFormat,
+      vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc,
+      vk::ImageAspectFlagBits::eColor);
+  }
 
 }  // namespace core

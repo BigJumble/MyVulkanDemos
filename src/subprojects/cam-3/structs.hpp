@@ -38,4 +38,19 @@ namespace core
     vk::Format    format;
     vk::Extent2D  extent;
   };
+
+  struct Buffer
+  {
+    VkBuffer          buffer = VK_NULL_HANDLE;
+    VmaAllocation     allocation = nullptr;
+    VmaAllocationInfo allocationInfo{}; // may contain mapped pointer for host visible buffers
+    VkDeviceSize      size = 0;
+  };
+
+  struct FrameInFlight
+  {
+    vk::raii::Semaphore imageAvailable = nullptr;
+    vk::raii::Semaphore renderFinished = nullptr;
+    vk::raii::Fence     presentFence   = nullptr;
+  };
 }  // namespace core

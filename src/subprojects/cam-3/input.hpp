@@ -2,8 +2,6 @@
 #include "state.hpp"
 
 #include <GLFW/glfw3.h>
-
-
 namespace input
 {
   // Store the previously installed GLFW cursor position callback (e.g., ImGui's)
@@ -65,49 +63,52 @@ namespace input
 
   inline void mouseButtonCallback( GLFWwindow * win, int button, int action, int mods )
   {
-    if ( button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS )
-    {
-      global::state::fpvMode = true;
-      // glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // For FPS camera
-    }
+    // if ( button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS )
+    // {
+    //   global::state::fpvMode = true;
+    //   // glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // For FPS camera
+    // }
   }
 
-  inline double virtualxPos, virtualyPos;
+  inline double virtualxPos = 0, virtualyPos = 0;
+  inline double lastX = 0, lastY = 0;
 
   inline void cursorPositionCallback( GLFWwindow * win, double xpos, double ypos )
   {
+    float deltaX = xpos - lastX;
+    float deltaY = ypos - lastY;
+
+    lastX = static_cast<float>( xpos );
+    lastY = static_cast<float>( ypos );
+
     if ( global::state::fpvMode )
     {
-      float x = virtualxPos - xpos + global::state::screenSize.width * 0.5f;
-      float y = virtualyPos - ypos + global::state::screenSize.height * 0.5f;
+      global::state::cameraRotation.x -= static_cast<float>( deltaX ) / 1000.0f;
+      global::state::cameraRotation.y -= static_cast<float>( deltaY ) / 1000.0f;
     }
     else
     {
-      virtualxPos = xpos;
-      virtualyPos = ypos;
-    }
-    // Clamp xpos, ypos to screen size if available
-    if ( global::state::screenSize.width > 0 && global::state::screenSize.height > 0 )
-    {
-      if ( xpos < 0 )
-        xpos = 0;
-      if ( ypos < 0 )
-        ypos = 0;
-      if ( xpos > global::state::screenSize.width - 1 )
-        xpos = global::state::screenSize.width - 1;
-      if ( ypos > global::state::screenSize.height - 1 )
-        ypos = global::state::screenSize.height - 1;
-    }
+      virtualxPos += deltaX;
+      virtualyPos += deltaY;
 
-    global::state::cameraRotation.x += static_cast<float>( xpos - global::state::lastX ) / 1000.0f;
-    global::state::cameraRotation.y += static_cast<float>( global::state::lastY - ypos ) / 1000.0f;
-    global::state::lastX = static_cast<float>( xpos );
-    global::state::lastY = static_cast<float>( ypos );
+      // Clamp xpos, ypos to screen size if available
+      if ( global::state::screenSize.width > 0 && global::state::screenSize.height > 0 )
+      {
+        if ( virtualxPos < 0 )
+          virtualxPos = 0;
+        if ( virtualyPos < 0 )
+          virtualyPos = 0;
+        if ( virtualxPos > global::state::screenSize.width - 1 )
+          virtualxPos = global::state::screenSize.width - 1;
+        if ( virtualyPos > global::state::screenSize.height - 1 )
+          virtualyPos = global::state::screenSize.height - 1;
+      }
+    }
 
     // Forward to previously installed callback (keeps ImGui responsive)
     if ( previousCursorPosCallback )
     {
-      previousCursorPosCallback( win, xpos, ypos );
+      previousCursorPosCallback( win, virtualxPos, virtualyPos );
     }
   }
 
@@ -120,14 +121,14 @@ namespace input
       global::state::cameraZoom = 10.0f;
   }
 
-  inline void windowSizeCallback( GLFWwindow * win, int width, int height )
-  {
-    global::state::windowWidth  = width;
-    global::state::windowHeight = height;
-  }
+  // inline void windowSizeCallback( GLFWwindow * win, int width, int height )
+  // {
+  //   global::state::windowWidth  = width;
+  //   global::state::windowHeight = height;
+  // }
 
-  inline void cursorEnterCallback( GLFWwindow * win, int entered )
-  {
-    global::state::cursorInWindow = entered != 0;
-  }
+  // inline void cursorEnterCallback( GLFWwindow * win, int entered )
+  // {
+  //   global::state::cursorInWindow = entered != 0;
+  // }
 }  // namespace input
