@@ -1,0 +1,15 @@
+- [ ] better project structure
+- [ ] Input manager - use sets to record input
+- [ ] player controller freecam
+- [ ] sphere sim - render n spheres - dual buffering
+- [ ] physics for spheres - uniform grid or aabb from RT khr
+- [ ] constraints 1 - connect spheres together via springs
+- [ ] constraints 2 - deformation physics
+- [ ] constraints 3 - break after too much deformation
+- [ ] constraints 4 - contract/relax rope based from input from cpu
+- [ ] figure out how entities should be constructed
+- [ ] ECS - each physics object should be represented as component
+- [ ] physics sensors - pass data from simulation to cpu
+- [ ] models - many connected physics objects/sensors = entitiy
+- [ ] AI for entity, procedural animation
+
