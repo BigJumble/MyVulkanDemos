@@ -6,6 +6,7 @@ namespace input
 {
   // Store the previously installed GLFW cursor position callback (e.g., ImGui's)
   inline GLFWcursorposfun previousCursorPosCallback = nullptr;
+  inline GLFWmousebuttonfun previousMouseButtonCallback = nullptr;
 
   inline void framebufferResizeCallback( GLFWwindow * win, int, int )
   {
@@ -63,6 +64,17 @@ namespace input
 
   inline void mouseButtonCallback( GLFWwindow * win, int button, int action, int mods )
   {
+    if(global::state::fpvMode)
+    {
+      
+    }
+    else {
+      if ( previousMouseButtonCallback )
+      {
+        previousMouseButtonCallback( win, button, action, mods );
+      }
+    }
+
     // if ( button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS )
     // {
     //   global::state::fpvMode = true;

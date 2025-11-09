@@ -158,7 +158,7 @@ int main()
 
     // Set up callbacks
     glfwSetKeyCallback( global::obj::window, input::keyCallback );
-    // glfwSetMouseButtonCallback( global::obj::window, input::mouseButtonCallback );
+    input::previousMouseButtonCallback = glfwSetMouseButtonCallback( global::obj::window, input::mouseButtonCallback );
     input::previousCursorPosCallback = glfwSetCursorPosCallback( global::obj::window, input::cursorPositionCallback );
     // glfwSetScrollCallback( displayBundle.window, input::scrollCallback );
     glfwSetFramebufferSizeCallback( global::obj::window, input::framebufferResizeCallback );

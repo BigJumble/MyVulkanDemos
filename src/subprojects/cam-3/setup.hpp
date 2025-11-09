@@ -656,6 +656,7 @@ namespace core
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui::StyleColorsDark();
+        ImGui::GetIO().MouseDrawCursor = true;
 
         // Initialize GLFW implementation
         ImGui_ImplGlfw_InitForVulkan( window, true );
