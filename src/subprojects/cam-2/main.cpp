@@ -199,7 +199,7 @@ int main()
         continue;
       }
 
-      if ( !state::fpvMode )
+      if ( !state::imguiMode )
       {
         // Start ImGui frame
         ImGui_ImplVulkan_NewFrame();

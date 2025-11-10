@@ -3,8 +3,10 @@
 #include "vulkan/vulkan.hpp"
 
 #include <glm/glm.hpp>
+#include <set>
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
+#include "structs.hpp"
 
 namespace global{
     // clang-format off
@@ -55,7 +57,21 @@ namespace global{
         // User Input
         //=========================================================
 
-        inline bool fpvMode = false;
+        // Enum for a subset of GLFW keys: W, A, S, D, Shift, Ctrl, Space
+
+
+        inline std::set<core::Key> keysPressed;
+        inline std::set<core::Key> keysDown;
+        inline std::set<core::Key> keysUp;
+
+        
+        inline glm::vec2 cursorDelta;
+
+        //=========================================================
+        // Game state
+        //=========================================================
+
+        inline bool imguiMode = false;
         inline glm::vec3 cameraPosition = glm::vec3( 0.0f, 0.0f, 0.0f );
         inline glm::vec2 cameraRotation = glm::vec2( 0.0f, 0.0f );
         inline float cameraZoom = 1.0f;

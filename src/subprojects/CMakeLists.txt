@@ -15,7 +15,6 @@
 # add_subdirectory(tri-vbuf-vma-2)
 add_subdirectory(cam-2)
 add_subdirectory(cam-3)
-add_subdirectory(engine-1)
 # add_subdirectory(testing)
 # add_subdirectory(triangle)
 # add_subdirectory(tri-window)

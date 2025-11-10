@@ -22,13 +22,16 @@ int main()
 {
   try
   {
+    //=========================================================
+    // Vulkan setup
+    //=========================================================
+
     global::obj::instance = vk::raii::Instance( global::obj::context, core::createInfo );
 
     global::obj::physicalDevices = vk::raii::PhysicalDevices( global::obj::instance );
 
     global::obj::physicalDevice = core::selectPhysicalDevice( global::obj::physicalDevices );
 
-    // global::obj::displayBundle = core::DisplayBundle( global::obj::instance);
     global::obj::window  = core::raii::Window( global::obj::instance );
     global::obj::surface = core::createWindowSurface( global::obj::instance, global::obj::window );
 
@@ -50,6 +53,44 @@ int main()
 
     global::obj::allocator = core::raii::Allocator( global::obj::instance, global::obj::physicalDevice, global::obj::device );
 
+    global::obj::descriptorPool = core::createDescriptorPool( global::obj::device );
+
+    //=========================================================
+    // ImGui setup
+    //=========================================================
+
+    core::initImGui(
+      global::obj::device,
+      global::obj::instance,
+      global::obj::physicalDevice,
+      global::obj::queueFamilyIndices.graphicsFamily.value(),
+      global::obj::graphicsQueue,
+      global::obj::window,
+      static_cast<uint32_t>( global::obj::swapchainBundle.images.size() ),
+      static_cast<uint32_t>( global::obj::swapchainBundle.images.size() ),
+      global::obj::swapchainBundle.imageFormat,
+      global::obj::descriptorPool );
+
+    // Set up callbacks
+    input::previousKeyCallback         = glfwSetKeyCallback( global::obj::window, input::keyCallback );
+    input::previousMouseButtonCallback = glfwSetMouseButtonCallback( global::obj::window, input::mouseButtonCallback );
+    input::previousCursorPosCallback   = glfwSetCursorPosCallback( global::obj::window, input::cursorPositionCallback );
+    input::previousScrollCallback      = glfwSetScrollCallback( global::obj::window, input::scrollCallback );
+
+    // input::previousWindowFocusCallback = glfwSetWindowFocusCallback( global::obj::window, []( GLFWwindow *, int ) {} );
+    input::previousCursorEnterCallback = glfwSetCursorEnterCallback( global::obj::window, input::cursorEnterCallback );
+    // input::previousCharCallback        = glfwSetCharCallback( global::obj::window, []( GLFWwindow *, unsigned int ) {} );
+    // input::previousMonitorCallback     = glfwSetMonitorCallback( []( GLFWmonitor *, int ) {} );
+
+    glfwSetFramebufferSizeCallback( global::obj::window, input::framebufferResizeCallback );
+
+    glfwSetInputMode( global::obj::window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );
+    glfwSetInputMode( global::obj::window, GLFW_STICKY_KEYS, GLFW_TRUE );
+
+    //=========================================================
+    // Scene setup
+    //=========================================================
+
     global::obj::depthTexture = core::createTexture(
       global::obj::device,
       global::obj::allocator,
@@ -65,22 +106,6 @@ int main()
       global::obj::swapchainBundle.imageFormat,
       vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc,
       vk::ImageAspectFlagBits::eColor );
-
-    core::raii::IMGUI imgui(
-      global::obj::device,
-      global::obj::instance,
-      global::obj::physicalDevice,
-      global::obj::queueFamilyIndices.graphicsFamily.value(),
-      global::obj::graphicsQueue,
-      global::obj::window,
-      static_cast<uint32_t>( global::obj::swapchainBundle.images.size() ),
-      static_cast<uint32_t>( global::obj::swapchainBundle.images.size() ),
-      global::obj::swapchainBundle.imageFormat,
-      global::obj::depthTexture.format );
-
-    //=========================================================
-    // Vulkan setup
-    //=========================================================
 
     core::raii::ShaderBundle shaderBundle(
       global::obj::device,
@@ -136,12 +161,11 @@ int main()
     vk::CommandPoolCreateInfo cmdPoolInfo{ vk::CommandPoolCreateFlagBits::eResetCommandBuffer, global::obj::queueFamilyIndices.graphicsFamily.value() };
     global::obj::commandPool = vk::raii::CommandPool{ global::obj::device, cmdPoolInfo };
 
-
-
-
     {
       // Allocate command buffers as individual singletons per frame slot
-      vk::CommandBufferAllocateInfo allocInfoCmd{ global::obj::commandPool, vk::CommandBufferLevel::ePrimary, static_cast<uint32_t>( global::state::MAX_FRAMES_IN_FLIGHT ) };
+      vk::CommandBufferAllocateInfo allocInfoCmd{ global::obj::commandPool,
+                                                  vk::CommandBufferLevel::ePrimary,
+                                                  static_cast<uint32_t>( global::state::MAX_FRAMES_IN_FLIGHT ) };
       global::obj::cmdScene   = vk::raii::CommandBuffers( global::obj::device, allocInfoCmd );
       global::obj::cmdOverlay = vk::raii::CommandBuffers( global::obj::device, allocInfoCmd );
 
@@ -155,19 +179,6 @@ int main()
                                { global::obj::device, vk::FenceCreateInfo{ vk::FenceCreateFlagBits::eSignaled } } } );
       }
     }
-
-    // Set up callbacks
-    glfwSetKeyCallback( global::obj::window, input::keyCallback );
-    input::previousMouseButtonCallback = glfwSetMouseButtonCallback( global::obj::window, input::mouseButtonCallback );
-    input::previousCursorPosCallback = glfwSetCursorPosCallback( global::obj::window, input::cursorPositionCallback );
-    // glfwSetScrollCallback( displayBundle.window, input::scrollCallback );
-    glfwSetFramebufferSizeCallback( global::obj::window, input::framebufferResizeCallback );
-    // glfwSetWindowSizeCallback( displayBundle.window, input::windowSizeCallback );
-    // glfwSetCursorEnterCallback( displayBundle.window, input::cursorEnterCallback );
-
-    // Optional: Set input modes
-    glfwSetInputMode( global::obj::window, GLFW_CURSOR, GLFW_CURSOR_DISABLED );  // For FPS camera
-    glfwSetInputMode( global::obj::window, GLFW_STICKY_KEYS, GLFW_TRUE );
 
     // std::this_thread::sleep_for(std::chrono::milliseconds(500));
     size_t currentFrame = 0;
@@ -193,7 +204,7 @@ int main()
         continue;
       }
 
-      if ( !global::state::fpvMode )
+      if ( global::state::imguiMode )
       {
         // Start ImGui frame
         ImGui_ImplVulkan_NewFrame();
@@ -233,7 +244,7 @@ int main()
         // Record command buffers for this frame: scene -> offscreen, then blit+imgui -> swapchain
         auto & cmdScene   = global::obj::cmdScene[currentFrame];
         auto & cmdOverlay = global::obj::cmdOverlay[currentFrame];
-        
+
         pipelines::basic::recordCommandBufferOffscreen(
           cmdScene,
           shaderBundle,
@@ -243,7 +254,7 @@ int main()
           instanceCount,
           global::obj::depthTexture );
 
-        pipelines::overlay::recordCommandBuffer( cmdOverlay, global::obj::basicTargetTexture, global::obj::swapchainBundle, imageIndex, true );
+        pipelines::overlay::recordCommandBuffer( cmdOverlay, global::obj::basicTargetTexture, global::obj::swapchainBundle, imageIndex );
 
         // Submit command buffer waiting on imageAvailable, signal renderFinished and timeline
         // uint64_t renderCompleteValue = ++currentTimelineValue;
@@ -291,7 +302,6 @@ int main()
           throw std::runtime_error( "presentRes: " + std::to_string( static_cast<int>( presentRes ) ) );
         }
 
-
         currentFrame = ( currentFrame + 1 ) % global::state::MAX_FRAMES_IN_FLIGHT;
       }
       catch ( std::exception const & err )
@@ -313,6 +323,8 @@ int main()
     }
 
     global::obj::device.waitIdle();
+
+    core::shutdownImGui();
 
     core::destroyTexture( global::obj::device, global::obj::allocator, global::obj::depthTexture );
     core::destroyTexture( global::obj::device, global::obj::allocator, global::obj::basicTargetTexture );

@@ -89,7 +89,7 @@ namespace pipelines
 
       cmd.beginRendering( renderingInfo );
 
-      if ( renderImgui && !state::fpvMode )
+      if ( renderImgui && !state::imguiMode )
       {
         // Render ImGui on top
         ImGui_ImplVulkan_RenderDrawData( ImGui::GetDrawData(), *cmd );

@@ -12,7 +12,7 @@ namespace pipelines
   namespace overlay
   {
     inline void recordCommandBuffer(
-      vk::raii::CommandBuffer & cmd, core::Texture const & srcColor, core::SwapchainBundle & swapchainBundle, uint32_t imageIndex, bool renderImgui = true )
+      vk::raii::CommandBuffer & cmd, core::Texture const & srcColor, core::SwapchainBundle & swapchainBundle, uint32_t imageIndex )
     {
       cmd.reset();
       cmd.begin( vk::CommandBufferBeginInfo{ vk::CommandBufferUsageFlagBits::eOneTimeSubmit } );
@@ -81,7 +81,7 @@ namespace pipelines
 
       cmd.beginRendering( renderingInfo );
 
-      if ( renderImgui && !global::state::fpvMode )
+      if (global::state::imguiMode )
       {
         // Render ImGui on top
         ImGui_ImplVulkan_RenderDrawData( ImGui::GetDrawData(), *cmd );

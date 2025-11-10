@@ -17,6 +17,8 @@ namespace global
     inline vk::raii::PhysicalDevices physicalDevices = nullptr;
     inline vk::raii::PhysicalDevice  physicalDevice  = nullptr;
 
+
+
     inline core::raii::Window window;
     inline vk::raii::SurfaceKHR surface = nullptr;
 
@@ -33,6 +35,10 @@ namespace global
 
     inline core::Texture depthTexture;
     inline core::Texture basicTargetTexture;
+
+    inline vk::raii::DescriptorPool descriptorPool = nullptr;
+
+    // inline core::raii::IMGUI IMGUI;
 
     inline vk::raii::CommandPool commandPool = nullptr;
 

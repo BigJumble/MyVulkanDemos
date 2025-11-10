@@ -50,7 +50,7 @@ namespace state {
     // User Input
     //=========================================================
 
-    inline bool fpvMode = false;
+    inline bool imguiMode = false;
     inline glm::vec3 cameraPosition = glm::vec3( 0.0f, 0.0f, 0.0f );
     inline glm::vec2 cameraRotation = glm::vec2( 0.0f, 0.0f );
     inline float cameraZoom = 1.0f;

@@ -1,10 +1,29 @@
 #pragma once
+#include <GLFW/glfw3.h>
 #include <optional>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace core
 {
+  // GLFW-based key and mouse enumeration
+  enum class Key
+  {
+    W            = GLFW_KEY_W,
+    A            = GLFW_KEY_A,
+    S            = GLFW_KEY_S,
+    D            = GLFW_KEY_D,
+    LeftShift    = GLFW_KEY_LEFT_SHIFT,
+    RightShift   = GLFW_KEY_RIGHT_SHIFT,
+    LeftControl  = GLFW_KEY_LEFT_CONTROL,
+    RightControl = GLFW_KEY_RIGHT_CONTROL,
+    Space        = GLFW_KEY_SPACE,
+    Escape       = GLFW_KEY_ESCAPE,
+    F11          = GLFW_KEY_F11,
+    MouseLeft    = GLFW_MOUSE_BUTTON_LEFT,
+    MouseRight   = GLFW_MOUSE_BUTTON_RIGHT,
+    MouseMiddle  = GLFW_MOUSE_BUTTON_MIDDLE
+  };
 
   struct QueueFamilyIndices
   {
@@ -41,9 +60,9 @@ namespace core
 
   struct Buffer
   {
-    VkBuffer          buffer = VK_NULL_HANDLE;
+    VkBuffer          buffer     = VK_NULL_HANDLE;
     VmaAllocation     allocation = nullptr;
-    VmaAllocationInfo allocationInfo{}; // may contain mapped pointer for host visible buffers
+    VmaAllocationInfo allocationInfo{};  // may contain mapped pointer for host visible buffers
     VkDeviceSize      size = 0;
   };
 

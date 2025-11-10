@@ -18,14 +18,14 @@ namespace input
   {
     if ( key == GLFW_KEY_ESCAPE && action == GLFW_PRESS )
     {
-      if ( state::fpvMode )
+      if ( state::imguiMode )
       {
-        state::fpvMode = false;
+        state::imguiMode = false;
         // glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_NORMAL); // For FPS camera // doesn't work bruh, gotta make virtual cursor
       }
       else
       {
-        state::fpvMode = true;
+        state::imguiMode = true;
         // glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // For FPS camera
       }
     }
@@ -67,7 +67,7 @@ namespace input
   {
     if ( button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS )
     {
-      state::fpvMode = true;
+      state::imguiMode = true;
       // glfwSetInputMode(win, GLFW_CURSOR, GLFW_CURSOR_DISABLED); // For FPS camera
     }
   }
@@ -76,7 +76,7 @@ namespace input
 
   inline void cursorPositionCallback( GLFWwindow * win, double xpos, double ypos )
   {
-    if ( state::fpvMode )
+    if ( state::imguiMode )
     {
       float x = virtualxPos - xpos + state::screenSize.width * 0.5f;
       float y = virtualyPos - ypos + state::screenSize.height * 0.5f;

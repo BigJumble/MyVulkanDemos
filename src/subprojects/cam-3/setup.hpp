@@ -3,7 +3,6 @@
 #include "state.hpp"
 #include "structs.hpp"
 
-
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -14,11 +13,9 @@
 #include <vector>
 #include <vulkan/vulkan_raii.hpp>
 
-
 #define GLFW_INCLUDE_VULKAN
 #include "features.hpp"
 #include "helper.hpp"
-
 
 #include <GLFW/glfw3.h>
 #include <entt/entt.hpp>
@@ -289,8 +286,6 @@ namespace core
 
   inline vk::InstanceCreateInfo createInfo = vk::InstanceCreateInfo( {}, &applicationInfo, {}, cfg::InstanceExtensions );
 
-
-
   // Creates a core::Texture given the image specs. Allocates memory and creates image, image view, and default sampler.
   // Parameters:
   //   device - logical device used for image/image view/sampler creation
@@ -302,65 +297,59 @@ namespace core
   // Returns:
   //   Populated core::Texture struct
   inline core::Texture createTexture(
-    const vk::Device& device,
-    VmaAllocator allocator,
-    vk::Extent2D extent,
-    vk::Format format,
-    vk::ImageUsageFlags usage,
-    vk::ImageAspectFlags aspectMask
-  )
+    const vk::Device & device, VmaAllocator allocator, vk::Extent2D extent, vk::Format format, vk::ImageUsageFlags usage, vk::ImageAspectFlags aspectMask )
   {
     core::Texture texture;
     texture.format = format;
     texture.extent = extent;
 
     VkImageCreateInfo imageInfo = {};
-    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    imageInfo.imageType = VK_IMAGE_TYPE_2D;
-    imageInfo.extent.width = extent.width;
-    imageInfo.extent.height = extent.height;
-    imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
-    imageInfo.arrayLayers = 1;
-    imageInfo.format = static_cast<VkFormat>(format);
-    imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    imageInfo.usage = static_cast<VkImageUsageFlags>(usage);
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.sType             = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.imageType         = VK_IMAGE_TYPE_2D;
+    imageInfo.extent.width      = extent.width;
+    imageInfo.extent.height     = extent.height;
+    imageInfo.extent.depth      = 1;
+    imageInfo.mipLevels         = 1;
+    imageInfo.arrayLayers       = 1;
+    imageInfo.format            = static_cast<VkFormat>( format );
+    imageInfo.tiling            = VK_IMAGE_TILING_OPTIMAL;
+    imageInfo.initialLayout     = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage             = static_cast<VkImageUsageFlags>( usage );
+    imageInfo.samples           = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.sharingMode       = VK_SHARING_MODE_EXCLUSIVE;
 
     VmaAllocationCreateInfo allocInfo = {};
-    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    allocInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    allocInfo.usage                   = VMA_MEMORY_USAGE_AUTO;
+    allocInfo.requiredFlags           = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-    VkImage vkImage = VK_NULL_HANDLE;
+    VkImage       vkImage    = VK_NULL_HANDLE;
     VmaAllocation allocation = nullptr;
-    vmaCreateImage(allocator, &imageInfo, &allocInfo, &vkImage, &allocation, nullptr);
-    texture.image = vkImage;
+    vmaCreateImage( allocator, &imageInfo, &allocInfo, &vkImage, &allocation, nullptr );
+    texture.image      = vkImage;
     texture.allocation = allocation;
 
     // Create image view
     vk::ImageViewCreateInfo viewInfo{};
-    viewInfo.setImage(texture.image)
-      .setViewType(vk::ImageViewType::e2D)
-      .setFormat(format)
-      .setComponents({})
-      .setSubresourceRange({ aspectMask, 0, 1, 0, 1 });
-    texture.imageView = vk::ImageView(device.createImageView(viewInfo));
+    viewInfo.setImage( texture.image )
+      .setViewType( vk::ImageViewType::e2D )
+      .setFormat( format )
+      .setComponents( {} )
+      .setSubresourceRange( { aspectMask, 0, 1, 0, 1 } );
+    texture.imageView = vk::ImageView( device.createImageView( viewInfo ) );
 
     // Create sampler (default settings, linear filtering, repeat)
     vk::SamplerCreateInfo samplerInfo{};
-    samplerInfo.setMagFilter(vk::Filter::eLinear)
-               .setMinFilter(vk::Filter::eLinear)
-               .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-               .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-               .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-               .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-               .setAnisotropyEnable(VK_FALSE)
-               .setMaxAnisotropy(1.0f)
-               .setBorderColor(vk::BorderColor::eIntOpaqueBlack)
-               .setUnnormalizedCoordinates(VK_FALSE);
-    texture.sampler = vk::Sampler(device.createSampler(samplerInfo));
+    samplerInfo.setMagFilter( vk::Filter::eLinear )
+      .setMinFilter( vk::Filter::eLinear )
+      .setMipmapMode( vk::SamplerMipmapMode::eLinear )
+      .setAddressModeU( vk::SamplerAddressMode::eRepeat )
+      .setAddressModeV( vk::SamplerAddressMode::eRepeat )
+      .setAddressModeW( vk::SamplerAddressMode::eRepeat )
+      .setAnisotropyEnable( VK_FALSE )
+      .setMaxAnisotropy( 1.0f )
+      .setBorderColor( vk::BorderColor::eIntOpaqueBlack )
+      .setUnnormalizedCoordinates( VK_FALSE );
+    texture.sampler = vk::Sampler( device.createSampler( samplerInfo ) );
 
     return texture;
   }
@@ -370,87 +359,90 @@ namespace core
   //   device    - logical device for destroying image view and sampler
   //   allocator - VMA allocator for destroying image and memory
   //   texture   - texture object to destroy (its members are reset)
-  inline void destroyTexture(
-    const vk::Device& device,
-    VmaAllocator allocator,
-    core::Texture& texture
-  )
+  inline void destroyTexture( const vk::Device & device, VmaAllocator allocator, core::Texture & texture )
   {
-    if (texture.sampler) {
-      device.destroySampler(texture.sampler, nullptr);
+    if ( texture.sampler )
+    {
+      device.destroySampler( texture.sampler, nullptr );
       texture.sampler = VK_NULL_HANDLE;
     }
 
-    if (texture.imageView) {
-      device.destroyImageView(texture.imageView, nullptr);
+    if ( texture.imageView )
+    {
+      device.destroyImageView( texture.imageView, nullptr );
       texture.imageView = VK_NULL_HANDLE;
     }
 
-    if (texture.image && texture.allocation) {
-      vmaDestroyImage(allocator, texture.image, texture.allocation);
-      texture.image = VK_NULL_HANDLE;
+    if ( texture.image && texture.allocation )
+    {
+      vmaDestroyImage( allocator, texture.image, texture.allocation );
+      texture.image      = VK_NULL_HANDLE;
       texture.allocation = nullptr;
     }
 
     texture.format = vk::Format();
     texture.extent = vk::Extent2D();
   }
+
   namespace raii
   {
 
     struct Window
     {
-      GLFWwindow* window = nullptr;
+      GLFWwindow * window = nullptr;
 
       // Default constructor
       Window() = default;
 
-      Window(vk::raii::Instance const & instance);
+      Window( vk::raii::Instance const & instance );
 
       // Construct from raw GLFWwindow*
-      explicit Window(GLFWwindow* w)
-        : window(w)
-      {}
+      explicit Window( GLFWwindow * w ) : window( w ) {}
 
       // Move constructor
-      Window(Window&& other) noexcept
-        : window(other.window)
+      Window( Window && other ) noexcept : window( other.window )
       {
         other.window = nullptr;
       }
 
       // Move assignment operator
-      Window& operator=(Window&& other) noexcept
+      Window & operator=( Window && other ) noexcept
       {
-        if (this != &other)
+        if ( this != &other )
         {
           reset();
-          window = other.window;
+          window       = other.window;
           other.window = nullptr;
         }
         return *this;
       }
 
       // Delete copy constructor and copy assignment
-      Window(const Window&) = delete;
-      Window& operator=(const Window&) = delete;
+      Window( const Window & )             = delete;
+      Window & operator=( const Window & ) = delete;
 
       // Destroy window, if owned
       void reset()
       {
-        if (window)
+        if ( window )
         {
-          glfwDestroyWindow(window);
+          glfwDestroyWindow( window );
           glfwTerminate();
           window = nullptr;
         }
       }
 
       // Get underlying pointer
-      GLFWwindow* get() const { return window; }
+      GLFWwindow * get() const
+      {
+        return window;
+      }
 
       // Convenience conversion
-      operator GLFWwindow*() const { return window; }
+      operator GLFWwindow *() const
+      {
+        return window;
+      }
 
       ~Window()
       {
@@ -478,27 +470,27 @@ namespace core
       }
 
       // Move constructor
-      Allocator( Allocator&& other ) noexcept
+      Allocator( Allocator && other ) noexcept
       {
-        allocator = other.allocator;
+        allocator       = other.allocator;
         other.allocator = nullptr;
       }
 
       // Move assignment operator
-      Allocator& operator=( Allocator&& other ) noexcept
+      Allocator & operator=( Allocator && other ) noexcept
       {
         if ( this != &other )
         {
           clear();
-          allocator = other.allocator;
+          allocator       = other.allocator;
           other.allocator = nullptr;
         }
         return *this;
       }
 
       // Delete copy constructor and copy assignment operator
-      Allocator(const Allocator&) = delete;
-      Allocator& operator=(const Allocator&) = delete;
+      Allocator( const Allocator & )             = delete;
+      Allocator & operator=( const Allocator & ) = delete;
 
       operator VmaAllocator() const
       {
@@ -633,155 +625,126 @@ namespace core
       }
     };
 
-    struct IMGUI
-    {
-      
-      vk::raii::DescriptorPool descriptorPool;
-
-
-      IMGUI(
-        vk::raii::Device const &         device,
-        vk::raii::Instance const &       instance,
-        vk::raii::PhysicalDevice const & physicalDevice,
-        uint32_t                         queueFamily,
-        vk::raii::Queue const &          queue,
-        GLFWwindow *                     window,
-        uint32_t                         minImageCount,
-        uint32_t                         imageCount,
-        vk::Format                       swapchainFormat,
-        vk::Format                       depthFormat )
-        : descriptorPool( createDescriptorPool( device ) )
-      {
-        // Initialize ImGui context
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGui::StyleColorsDark();
-        ImGui::GetIO().MouseDrawCursor = true;
-
-        // Initialize GLFW implementation
-        ImGui_ImplGlfw_InitForVulkan( window, true );
-
-        // Initialize Vulkan implementation
-        ImGui_ImplVulkan_InitInfo initInfo{};
-        initInfo.Instance            = *instance;
-        initInfo.PhysicalDevice      = *physicalDevice;
-        initInfo.Device              = *device;
-        initInfo.QueueFamily         = queueFamily;
-        initInfo.Queue               = *queue;
-        initInfo.DescriptorPool      = *descriptorPool;
-        initInfo.RenderPass          = VK_NULL_HANDLE;
-        initInfo.MinImageCount       = minImageCount;
-        initInfo.ImageCount          = imageCount;
-        initInfo.MSAASamples         = VK_SAMPLE_COUNT_1_BIT;
-        initInfo.UseDynamicRendering = true;
-
-        // Set up dynamic rendering info
-        vk::PipelineRenderingCreateInfoKHR pipelineRenderingInfo{};
-        pipelineRenderingInfo.colorAttachmentCount    = 1;
-        pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
-        pipelineRenderingInfo.depthAttachmentFormat   = depthFormat;
-
-        initInfo.PipelineRenderingCreateInfo = pipelineRenderingInfo;
-
-        ImGui_ImplVulkan_Init( &initInfo );
-      }
-
-      ~IMGUI()
-      {
-        ImGui_ImplVulkan_Shutdown();
-        ImGui_ImplGlfw_Shutdown();
-        ImGui::DestroyContext();
-        // descriptorPool is automatically destroyed by vk::raii::DescriptorPool
-      }
-
-      // Delete copy operations
-      IMGUI( IMGUI const & )             = delete;
-      IMGUI & operator=( IMGUI const & ) = delete;
-
-      // Allow move operations
-      IMGUI( IMGUI && other ) noexcept             = default;
-      IMGUI & operator=( IMGUI && other ) noexcept = default;
-
-    private:
-      static vk::raii::DescriptorPool createDescriptorPool( vk::raii::Device const & device )
-      {
-        std::array<vk::DescriptorPoolSize, 11> poolSizes = { vk::DescriptorPoolSize{ vk::DescriptorType::eSampler, 1000 },
-                                                             vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1000 },
-                                                             vk::DescriptorPoolSize{ vk::DescriptorType::eSampledImage, 1000 },
-                                                             vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1000 },
-                                                             vk::DescriptorPoolSize{ vk::DescriptorType::eUniformTexelBuffer, 1000 },
-                                                             vk::DescriptorPoolSize{ vk::DescriptorType::eStorageTexelBuffer, 1000 },
-                                                             vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1000 },
-                                                             vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
-                                                             vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBufferDynamic, 1000 },
-                                                             vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBufferDynamic, 1000 },
-                                                             vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 1000 } };
-
-        vk::DescriptorPoolCreateInfo poolInfo{};
-        poolInfo.flags         = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
-        poolInfo.maxSets       = 1000 * static_cast<uint32_t>( poolSizes.size() );
-        poolInfo.poolSizeCount = static_cast<uint32_t>( poolSizes.size() );
-        poolInfo.pPoolSizes    = poolSizes.data();
-
-        return vk::raii::DescriptorPool{ device, poolInfo };
-      }
-    };
   }  // namespace raii
+
+  inline void initImGui(
+    vk::raii::Device const &         device,
+    vk::raii::Instance const &       instance,
+    vk::raii::PhysicalDevice const & physicalDevice,
+    uint32_t                         queueFamily,
+    vk::raii::Queue const &          queue,
+    GLFWwindow *                     window,
+    uint32_t                         minImageCount,
+    uint32_t                         imageCount,
+    vk::Format                       swapchainFormat,
+    vk::raii::DescriptorPool const & descriptorPool )
+  {
+    // Initialize ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+    ImGui::GetIO().MouseDrawCursor = true;
+
+    // Initialize GLFW implementation
+    ImGui_ImplGlfw_InitForVulkan( window, true );
+
+    // Initialize Vulkan implementation
+    ImGui_ImplVulkan_InitInfo initInfo{};
+    initInfo.Instance            = *instance;
+    initInfo.PhysicalDevice      = *physicalDevice;
+    initInfo.Device              = *device;
+    initInfo.QueueFamily         = queueFamily;
+    initInfo.Queue               = *queue;
+    initInfo.DescriptorPool      = *descriptorPool;
+    initInfo.RenderPass          = VK_NULL_HANDLE;
+    initInfo.MinImageCount       = minImageCount;
+    initInfo.ImageCount          = imageCount;
+    initInfo.MSAASamples         = VK_SAMPLE_COUNT_1_BIT;
+    initInfo.UseDynamicRendering = true;
+
+    // Set up dynamic rendering info
+    vk::PipelineRenderingCreateInfoKHR pipelineRenderingInfo{};
+    pipelineRenderingInfo.colorAttachmentCount    = 1;
+    pipelineRenderingInfo.pColorAttachmentFormats = &swapchainFormat;
+
+    initInfo.PipelineRenderingCreateInfo = pipelineRenderingInfo;
+
+    ImGui_ImplVulkan_Init( &initInfo );
+  }
+
+  inline void shutdownImGui()
+  {
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+  }
+
+  inline vk::raii::DescriptorPool createDescriptorPool( vk::raii::Device const & device )
+  {
+    std::array<vk::DescriptorPoolSize, 11> poolSizes = { vk::DescriptorPoolSize{ vk::DescriptorType::eSampler, 1000 },
+                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eCombinedImageSampler, 1000 },
+                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eSampledImage, 1000 },
+                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eStorageImage, 1000 },
+                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eUniformTexelBuffer, 1000 },
+                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eStorageTexelBuffer, 1000 },
+                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBuffer, 1000 },
+                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBuffer, 1000 },
+                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eUniformBufferDynamic, 1000 },
+                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eStorageBufferDynamic, 1000 },
+                                                         vk::DescriptorPoolSize{ vk::DescriptorType::eInputAttachment, 1000 } };
+
+    vk::DescriptorPoolCreateInfo poolInfo{};
+    poolInfo.flags         = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet;
+    poolInfo.maxSets       = 1000 * static_cast<uint32_t>( poolSizes.size() );
+    poolInfo.poolSizeCount = static_cast<uint32_t>( poolSizes.size() );
+    poolInfo.pPoolSizes    = poolSizes.data();
+
+    return vk::raii::DescriptorPool{ device, poolInfo };
+  }
 
   // ---------------------------------------------------------------------------
   // Swapchain recreation using global singletons
   // ---------------------------------------------------------------------------
   inline void recreateSwapchain(
-    vk::raii::Device& device,
-    vk::raii::PhysicalDevice& physicalDevice,
-    vk::raii::SurfaceKHR& surface,
-    core::QueueFamilyIndices& queueFamilyIndices,
-    core::SwapchainBundle& swapchainBundle,
-    vk::Extent2D& screenSize,
-    VmaAllocator allocator,
-    core::Texture& depthTexture,
-    core::Texture& basicTargetTexture,
-    GLFWwindow* window
-  )
+    vk::raii::Device &         device,
+    vk::raii::PhysicalDevice & physicalDevice,
+    vk::raii::SurfaceKHR &     surface,
+    core::QueueFamilyIndices & queueFamilyIndices,
+    core::SwapchainBundle &    swapchainBundle,
+    vk::Extent2D &             screenSize,
+    VmaAllocator               allocator,
+    core::Texture &            depthTexture,
+    core::Texture &            basicTargetTexture,
+    GLFWwindow *               window )
   {
     int width = 0, height = 0;
     do
     {
-      glfwGetFramebufferSize(window, &width, &height);
+      glfwGetFramebufferSize( window, &width, &height );
       glfwPollEvents();
-    } while (width == 0 || height == 0);
+    } while ( width == 0 || height == 0 );
 
     device.waitIdle();
 
-    core::SwapchainBundle old = std::move(swapchainBundle);
-    swapchainBundle = core::createSwapchain(
-      physicalDevice,
-      device,
-      surface,
-      vk::Extent2D{ static_cast<uint32_t>(width), static_cast<uint32_t>(height) },
-      queueFamilyIndices,
-      &old.swapchain);
+    core::SwapchainBundle old = std::move( swapchainBundle );
+    swapchainBundle           = core::createSwapchain(
+      physicalDevice, device, surface, vk::Extent2D{ static_cast<uint32_t>( width ), static_cast<uint32_t>( height ) }, queueFamilyIndices, &old.swapchain );
 
     screenSize = swapchainBundle.extent;
 
     // Recreate depth and offscreen color targets
-    core::destroyTexture(device, allocator, depthTexture);
+    core::destroyTexture( device, allocator, depthTexture );
     depthTexture = core::createTexture(
-      device,
-      allocator,
-      screenSize,
-      vk::Format::eD32Sfloat,
-      vk::ImageUsageFlagBits::eDepthStencilAttachment,
-      vk::ImageAspectFlagBits::eDepth);
+      device, allocator, screenSize, vk::Format::eD32Sfloat, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::ImageAspectFlagBits::eDepth );
 
-    core::destroyTexture(device, allocator, basicTargetTexture);
+    core::destroyTexture( device, allocator, basicTargetTexture );
     basicTargetTexture = core::createTexture(
       device,
       allocator,
       screenSize,
       swapchainBundle.imageFormat,
       vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc,
-      vk::ImageAspectFlagBits::eColor);
+      vk::ImageAspectFlagBits::eColor );
   }
 
 }  // namespace core
