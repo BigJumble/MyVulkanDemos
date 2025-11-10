@@ -1,6 +1,6 @@
 - [ ] better project structure
-- [ ] Input manager - use sets to record input
-- [ ] player controller freecam
+- [x] Input manager - use sets to record input
+- [x] player controller freecam
 - [ ] sphere sim - render n spheres - dual buffering
 - [ ] physics for spheres - uniform grid or aabb from RT khr
 - [ ] constraints 1 - connect spheres together via springs

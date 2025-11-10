@@ -1,6 +1,7 @@
 
 #include "GLFW/glfw3.h"
 #include "data.hpp"
+#include "glm/geometric.hpp"
 #include "input.hpp"
 #include "objects.hpp"
 #include "pipelines/basic.hpp"
@@ -187,43 +188,40 @@ int main()
     {
       glfwPollEvents();
 
-
       // Compute the camera direction in the XZ plane from cameraRotation.y (yaw)
-      float yaw = global::state::cameraRotation.x;
-      glm::vec3 forward = glm::vec3(
-        std::sin(yaw),
-        0.0f,
-        std::cos(yaw)
-      );
-      forward = glm::normalize(forward);
-      // Compute the camera's "left" direction as perpendicular to "forward" in the XZ plane
-      glm::vec3 left = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), forward));
-      const float moveSpeed = 0.01f;
+      float     yaw     = global::state::cameraRotation.x;
+      glm::vec3 forward = glm::vec3( std::sin( yaw ), 0.0f, std::cos( yaw ) );
+      glm::vec3   left      = glm::cross( glm::vec3( 0.0f, 1.0f, 0.0f ), forward );
+      const float moveSpeed = 0.1f;
+      glm::vec3   moveStep  = glm::vec3( 0 );
 
-      if(global::state::keysPressed.contains(core::Key::A))
+      if ( global::state::keysPressed.contains( core::Key::A ) )
       {
-        global::state::cameraPosition += left * moveSpeed;
+        moveStep += left;
       }
-      if(global::state::keysPressed.contains(core::Key::D))
+      if ( global::state::keysPressed.contains( core::Key::D ) )
       {
-        global::state::cameraPosition -= left * moveSpeed;
+        moveStep -= left;
       }
-      if(global::state::keysPressed.contains(core::Key::W))
+      if ( global::state::keysPressed.contains( core::Key::W ) )
       {
-        global::state::cameraPosition += forward * moveSpeed;
+        moveStep += forward;
       }
-      if(global::state::keysPressed.contains(core::Key::S))
+      if ( global::state::keysPressed.contains( core::Key::S ) )
       {
-        global::state::cameraPosition -= forward * moveSpeed;
+        moveStep -= forward;
       }
-      if(global::state::keysPressed.contains(core::Key::Space))
+      if ( global::state::keysPressed.contains( core::Key::Space ) )
       {
-        global::state::cameraPosition.y += moveSpeed;
+        moveStep.y += 1;
       }
-      if(global::state::keysPressed.contains(core::Key::LeftShift))
+      if ( global::state::keysPressed.contains( core::Key::LeftShift ) )
       {
-        global::state::cameraPosition.y -= moveSpeed;
+        moveStep.y -= 1;
       }
+      // std::println("{} {}", moveStep.x, glm::normalize(moveStep).x);
+      if ( moveStep != glm::vec3( 0.0f ) )
+        global::state::cameraPosition += glm::normalize( moveStep ) * moveSpeed;
 
       if ( global::state::framebufferResized )
       {
