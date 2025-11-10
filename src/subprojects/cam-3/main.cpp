@@ -187,6 +187,44 @@ int main()
     {
       glfwPollEvents();
 
+
+      // Compute the camera direction in the XZ plane from cameraRotation.y (yaw)
+      float yaw = global::state::cameraRotation.x;
+      glm::vec3 forward = glm::vec3(
+        std::sin(yaw),
+        0.0f,
+        std::cos(yaw)
+      );
+      forward = glm::normalize(forward);
+      // Compute the camera's "left" direction as perpendicular to "forward" in the XZ plane
+      glm::vec3 left = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), forward));
+      const float moveSpeed = 0.01f;
+
+      if(global::state::keysPressed.contains(core::Key::A))
+      {
+        global::state::cameraPosition += left * moveSpeed;
+      }
+      if(global::state::keysPressed.contains(core::Key::D))
+      {
+        global::state::cameraPosition -= left * moveSpeed;
+      }
+      if(global::state::keysPressed.contains(core::Key::W))
+      {
+        global::state::cameraPosition += forward * moveSpeed;
+      }
+      if(global::state::keysPressed.contains(core::Key::S))
+      {
+        global::state::cameraPosition -= forward * moveSpeed;
+      }
+      if(global::state::keysPressed.contains(core::Key::Space))
+      {
+        global::state::cameraPosition.y += moveSpeed;
+      }
+      if(global::state::keysPressed.contains(core::Key::LeftShift))
+      {
+        global::state::cameraPosition.y -= moveSpeed;
+      }
+
       if ( global::state::framebufferResized )
       {
         global::state::framebufferResized = false;
@@ -303,6 +341,9 @@ int main()
         }
 
         currentFrame = ( currentFrame + 1 ) % global::state::MAX_FRAMES_IN_FLIGHT;
+
+        global::state::keysDown.clear();
+        global::state::keysUp.clear();
       }
       catch ( std::exception const & err )
       {
